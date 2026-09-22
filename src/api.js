@@ -264,6 +264,14 @@ export const getCustomerById = (id) =>
 export const getAllBookings = () =>
   apiRequest("GET", "/bookings/getallbookings", {}, false);
 
+// Completion photos are an ADMIN-INTERNAL service record the garage uploads
+// before marking a service complete. They are deliberately NOT part of the
+// booking payload (the field is `select: false` on the Booking schema so it can
+// never leak into a customer response), so the details dialog fetches them
+// on demand from this dealer/admin-only endpoint.
+export const getBookingCompletionPhotos = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/completion-photos`, {}, false);
+
 // Set/revise the towing charge on a single booking. The backend re-runs the
 // whole pricing engine from this one number (subtotal, tax, customer total,
 // commission, dealer payout) and rejects the call once the booking is billed

@@ -34,9 +34,10 @@ import {
   ReceiptLong as InvoiceIcon,
   LocalShipping as TowingIcon,
   CurrencyRupee as CurrencyRupeeIcon,
+  PhotoLibrary as PhotoLibraryIcon,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
-import { updateBookingTowingCharge } from "../../api";
+import { updateBookingTowingCharge, getBookingCompletionPhotos } from "../../api";
 import {
   formatDate,
   getBookingAmount,
@@ -62,9 +63,38 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
   const [pricingPatch, setPricingPatch] = useState(null);
   const view = pricingPatch ? { ...booking, ...pricingPatch } : booking;
 
+  // Completion photos — the garage's internal record of the finished work.
+  // Fetched separately because the field is `select: false` on the Booking
+  // schema (so it can never leak into a customer response) and therefore is
+  // not part of the booking row this dialog is handed.
+  const [completionPhotos, setCompletionPhotos] = useState([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [viewerPhoto, setViewerPhoto] = useState(null);
+
   useEffect(() => {
     setPricingPatch(null);
   }, [booking?._id]);
+
+  useEffect(() => {
+    const bookingId = booking?._id;
+    if (!open || !bookingId) {
+      setCompletionPhotos([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setPhotosLoading(true);
+    getBookingCompletionPhotos(bookingId)
+      .then((res) => {
+        if (cancelled) return;
+        setCompletionPhotos(res?.success ? res.data || [] : []);
+      })
+      .finally(() => {
+        if (!cancelled) setPhotosLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, booking?._id]);
 
   // Keep the editor in step with whatever the booking currently holds — both
   // on open and after another surface (the Dealer App) has changed it.
@@ -686,6 +716,90 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
                   </Grid>
                 </Paper>
               </Grid>
+
+              {/* Section 5: Completion Photos — ADMIN-INTERNAL.
+                  Uploaded by the garage from the partner app before it marks
+                  the service complete. These are an internal service record:
+                  they are never returned by any customer booking API and are
+                  not shown in the customer app. */}
+              <Grid item xs={12}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+                  <Avatar sx={{ bgcolor: "primary.soft", width: 32, height: 32 }}>
+                    <PhotoLibraryIcon sx={{ color: "primary.main", fontSize: 18 }} />
+                  </Avatar>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 800,
+                      color: "#4a5568",
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    Completion Photos
+                  </Typography>
+                  <Chip
+                    label="Internal"
+                    size="small"
+                    sx={{ fontWeight: 800, fontSize: "0.6rem", height: 20, borderRadius: 1.5 }}
+                  />
+                </Box>
+                <Paper
+                  elevation={0}
+                  sx={{ p: 3.5, borderRadius: 4, bgcolor: "#f1f5f9", border: "1px solid #e2e8f0" }}
+                >
+                  {photosLoading ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <CircularProgress size={18} />
+                      <Typography variant="body2" sx={{ color: "#64748b" }}>
+                        Loading photos…
+                      </Typography>
+                    </Box>
+                  ) : completionPhotos.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: "#64748b" }}>
+                      No completion photos were uploaded for this booking.
+                    </Typography>
+                  ) : (
+                    <Stack direction="row" flexWrap="wrap" gap={2}>
+                      {completionPhotos.map((photo) => (
+                        <Box
+                          key={photo._id}
+                          onClick={() => setViewerPhoto(photo)}
+                          sx={{
+                            width: 112,
+                            cursor: "pointer",
+                            "&:hover img": { opacity: 0.85 },
+                          }}
+                        >
+                          <Box
+                            component="img"
+                            src={photo.url}
+                            alt="Completion photo"
+                            sx={{
+                              width: 112,
+                              height: 112,
+                              objectFit: "cover",
+                              borderRadius: 2,
+                              border: "1px solid #cbd5e1",
+                              display: "block",
+                              transition: "opacity 120ms",
+                            }}
+                          />
+                          {photo.uploadedAt && (
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "#64748b", mt: 0.5, display: "block", fontSize: "0.65rem" }}
+                            >
+                              {formatDate(photo.uploadedAt)}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                </Paper>
+              </Grid>
             </Grid>
           </>
         )}
@@ -714,6 +828,33 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
         bookingId={booking?._id}
         onClose={() => setInvoiceOpen(false)}
       />
+
+      {/* Full-screen viewer for a completion photo. */}
+      <Dialog
+        open={Boolean(viewerPhoto)}
+        onClose={() => setViewerPhoto(null)}
+        maxWidth="lg"
+        PaperProps={{ sx: { bgcolor: "#0f172a", borderRadius: 3 } }}
+      >
+        <DialogContent sx={{ p: 2, textAlign: "center" }}>
+          <Box
+            component="img"
+            src={viewerPhoto?.url}
+            alt="Completion photo"
+            sx={{ maxWidth: "100%", maxHeight: "78vh", display: "block", mx: "auto", borderRadius: 2 }}
+          />
+          {viewerPhoto?.uploadedAt && (
+            <Typography variant="caption" sx={{ color: "#cbd5e1", mt: 1.5, display: "block" }}>
+              Uploaded {formatDate(viewerPhoto.uploadedAt)}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: "#0f172a", px: 2, pb: 2 }}>
+          <Button onClick={() => setViewerPhoto(null)} sx={{ color: "#e2e8f0", textTransform: "none", fontWeight: 700 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };
