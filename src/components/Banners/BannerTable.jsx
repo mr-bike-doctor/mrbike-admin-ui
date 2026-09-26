@@ -75,6 +75,7 @@ const BannerTable = ({
   const [editLocationQuery, setEditLocationQuery] = useState("")
   const [googleReady, setGoogleReady] = useState(!!window.google?.maps?.places)
   const editSearchInputRef = useRef(null)
+  const editImageInputRef = useRef(null)
   const editAutocompleteRef = useRef(null)
 
   useEffect(() => {
@@ -662,6 +663,7 @@ const BannerTable = ({
                           <small>{imageSpec.note}</small>
                         </div>
                         <input
+                          ref={editImageInputRef}
                           type="file"
                           className={`form-control mb-2 ${imageError ? "is-invalid" : ""}`}
                           accept="image/jpeg,image/png,image/webp"
@@ -684,6 +686,13 @@ const BannerTable = ({
                                   <span className="badge bg-success me-2">New image · {formatSpec(imageSpec)}</span>
                                   <button
                                     type="button"
+                                    className="btn btn-sm btn-outline-primary me-2"
+                                    onClick={() => editImageInputRef.current?.click()}
+                                  >
+                                    Change image
+                                  </button>
+                                  <button
+                                    type="button"
                                     className="btn btn-sm btn-outline-secondary me-2"
                                     onClick={() => setCropSource(newImage)}
                                   >
@@ -698,7 +707,16 @@ const BannerTable = ({
                                   </button>
                                 </>
                               ) : (
-                                <span className="badge bg-secondary">Current image</span>
+                                <>
+                                  <span className="badge bg-secondary me-2">Current image</span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => editImageInputRef.current?.click()}
+                                  >
+                                    Replace image
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>

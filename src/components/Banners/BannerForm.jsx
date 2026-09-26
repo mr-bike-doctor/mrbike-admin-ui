@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
+import { Backdrop, Box, CircularProgress, Typography } from "@mui/material";
 import { addBanner, getBaseServiceList } from "../../api";
 import ImageCropDialog from "../Common/ImageCropDialog";
-import { BANNER_IMAGE_SPECS, formatSpec, optimizeBannerImage, validateBannerImage } from "../../utils/bannerImageSpecs";
+import {
+  BANNER_IMAGE_SPECS,
+  MAX_IMAGE_LABEL,
+  MAX_OPTIMIZED_IMAGE_LABEL,
+  formatSpec,
+  optimizeBannerImage,
+  validateBannerImage,
+} from "../../utils/bannerImageSpecs";
 import { useNavigate } from "react-router-dom";
 
 // Legacy banners land on the app's home slider, so they share the Home Hero spec.
@@ -52,6 +60,7 @@ const BannerForm = () => {
   const [locationQuery, setLocationQuery] = useState("");
   const [googleReady, setGoogleReady] = useState(!!window.google?.maps?.places);
   const searchInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const autocompleteRef = useRef(null);
   // State updates are asynchronous, so keep an immediate lock as well. This
   // prevents two rapid clicks from starting two requests in the same render.
@@ -283,9 +292,13 @@ const BannerForm = () => {
       setImage(null);
       setErrors({});
     } catch (error) {
+      const apiMessage = error.response?.data?.message || "Something went wrong!";
+      const message = /file too large/i.test(apiMessage)
+        ? `Image upload is too large. Choose a JPG, PNG or WEBP up to ${MAX_IMAGE_LABEL}; it will be compressed below ${MAX_OPTIMIZED_IMAGE_LABEL} automatically.`
+        : apiMessage;
       Swal.fire({
         title: "Error!",
-        text: error.response?.data?.message || "Something went wrong!",
+        text: message,
         icon: "error",
       });
     } finally {
@@ -339,11 +352,15 @@ const BannerForm = () => {
               <div className="input-block mb-3">
                 <label className="form-control-label">Upload Banner Image</label>
                 <div className="alert alert-info py-2 px-3 mb-2" role="alert">
-                  <strong>Required size: {formatSpec(imageSpec)}</strong> — any other size opens the crop tool.
+                  <strong>Required dimensions: {formatSpec(imageSpec)}</strong>
+                  <br />
+                  JPG, PNG or WEBP up to <strong>{MAX_IMAGE_LABEL}</strong>. The image is cropped when
+                  needed and compressed below <strong>{MAX_OPTIMIZED_IMAGE_LABEL}</strong> before upload.
                   <br />
                   <small>{imageSpec.note}</small>
                 </div>
                 <input
+                  ref={imageInputRef}
                   type="file"
                   className={`form-control mb-2 ${errors.image ? "is-invalid" : ""}`}
                   accept="image/jpeg,image/png,image/webp"
@@ -361,10 +378,24 @@ const BannerForm = () => {
                       <span className="badge bg-success me-2">{formatSpec(imageSpec)}</span>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-secondary"
+                        className="btn btn-sm btn-outline-primary me-2"
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        Change image
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary me-2"
                         onClick={() => setCropSource(image)}
                       >
                         Adjust crop
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => { setImage(null); setPreview(null); }}
+                      >
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -481,11 +512,7 @@ const BannerForm = () => {
                 >
                   {isSubmitting ? (
                     <>
-                      <span
-                        className="spinner-border spinner-border-sm me-2"
-                        role="status"
-                        aria-hidden="true"
-                      />
+                      <CircularProgress size={18} color="inherit" className="me-2" />
                       Creating...
                     </>
                   ) : (
@@ -505,6 +532,25 @@ const BannerForm = () => {
         onCancel={handleCropCancel}
         onCropped={handleCropped}
       />
+
+      <Backdrop
+        open={isSubmitting}
+        sx={{
+          color: "#fff",
+          zIndex: (theme) => theme.zIndex.modal + 1,
+          backgroundColor: "rgba(15, 23, 42, 0.72)",
+        }}
+      >
+        <Box
+          role="status"
+          aria-live="polite"
+          sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+        >
+          <CircularProgress color="inherit" />
+          <Typography fontWeight={600}>Creating banner...</Typography>
+          <Typography variant="body2">Please wait while the image uploads.</Typography>
+        </Box>
+      </Backdrop>
     </div>
   );
 };
