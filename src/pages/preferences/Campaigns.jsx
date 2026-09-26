@@ -55,6 +55,7 @@ const normalize = (c) => ({
   title: c.title || "",
   description: c.description || "",
   image: c.image || c.banner || c.bannerUrl || "",
+  inAppImage: c.inAppImage || "",
   targetAudience: c.targetAudience || "all",
   pushNotification: c.pushNotification ?? false,
   inAppNotification: c.inAppNotification ?? false,
@@ -371,12 +372,26 @@ const Campaigns = () => {
         {viewCampaign && (
           <Stack spacing={2}>
             {viewCampaign.image && (
-              <Box
-                component="img"
-                src={viewCampaign.image}
-                alt={viewCampaign.title}
-                sx={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: "12px" }}
-              />
+              <Box>
+                <Typography variant="caption" color="text.secondary">Banner / Push Image</Typography>
+                <Box
+                  component="img"
+                  src={viewCampaign.image}
+                  alt={`${viewCampaign.title} banner`}
+                  sx={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: "12px", display: "block", mt: 0.5 }}
+                />
+              </Box>
+            )}
+            {viewCampaign.inAppImage && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">In-App Mobile Image</Typography>
+                <Box
+                  component="img"
+                  src={viewCampaign.inAppImage}
+                  alt={`${viewCampaign.title} in-app`}
+                  sx={{ width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: "12px", display: "block", mt: 0.5 }}
+                />
+              </Box>
             )}
             <Box>
               <Typography variant="caption" color="text.secondary">Description</Typography>

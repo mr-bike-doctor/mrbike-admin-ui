@@ -29,11 +29,23 @@ export const BANNER_IMAGE_SPECS = {
     // of their photo the app's own text will sit on top of.
     overlayBottomPct: 0.7,
   },
+  campaignBanner: {
+    width: 1200,
+    height: 640,
+    label: "Campaign banner / push image",
+    note: "Landscape artwork using the same dimensions and crop workflow as the home banner.",
+  },
   popup: {
     width: 1080,
     height: 1350,
     label: "Popup banner",
     note: "Full designed creative (4:5). The app adds no text over it. Keep ~10% safe margin top and bottom for small screens.",
+  },
+  campaignInApp: {
+    width: 1080,
+    height: 1350,
+    label: "In-app mobile image",
+    note: "Portrait 4:5 artwork shown above the campaign title and description. Keep important text and logos inside a ~10% safe margin.",
   },
   announcement: {
     width: 1080,

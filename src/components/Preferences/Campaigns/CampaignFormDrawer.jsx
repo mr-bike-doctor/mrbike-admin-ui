@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import FormDrawer from "../shared/FormDrawer";
 import ImageUploadField from "../shared/ImageUploadField";
+import { BANNER_IMAGE_SPECS } from "../../../utils/bannerImageSpecs";
 
 const ACCENT = "#f59e0b";
 
@@ -62,6 +63,8 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
   const [form, setForm] = useState(emptyForm);
   const [imageFile, setImageFile] = useState(null);
   const [existingImage, setExistingImage] = useState(null);
+  const [inAppImageFile, setInAppImageFile] = useState(null);
+  const [existingInAppImage, setExistingInAppImage] = useState(null);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -81,6 +84,8 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
       );
       setImageFile(null);
       setExistingImage(campaign?.image || null);
+      setInAppImageFile(null);
+      setExistingInAppImage(campaign?.inAppImage || null);
       setErrors({});
     }
   }, [open, campaign]);
@@ -105,6 +110,16 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
     setExistingImage(null);
   };
 
+  const handleInAppImageChange = (file) => {
+    setInAppImageFile(file);
+    if (errors.inAppImage) setErrors((prev) => ({ ...prev, inAppImage: null }));
+  };
+
+  const handleInAppImageRemove = () => {
+    setInAppImageFile(null);
+    setExistingInAppImage(null);
+  };
+
   const validate = () => {
     const e = {};
     if (!form.title.trim()) e.title = "Campaign title is required";
@@ -112,7 +127,10 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
     if (!form.targetAudience) e.targetAudience = "Target audience is required";
     if (!form.scheduleAt) e.scheduleAt = "Schedule date & time is required";
     if (!form.status) e.status = "Campaign status is required";
-    if (!campaign && !imageFile) e.image = "Banner image is required";
+    if (!imageFile && !existingImage) e.image = "Banner image is required";
+    if (form.inAppNotification && !inAppImageFile && !existingInAppImage) {
+      e.inAppImage = "A separate mobile image is required for an in-app notification";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -133,6 +151,7 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
     payload.append("scheduleAt", new Date(form.scheduleAt).toISOString());
     payload.append("status", form.status);
     if (imageFile) payload.append("image", imageFile);
+    if (inAppImageFile) payload.append("inAppImage", inAppImageFile);
     onSave(payload);
   };
 
@@ -149,13 +168,14 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
     >
       <Stack spacing={2.5}>
         <ImageUploadField
-          label="Banner Image"
-          required={!campaign}
+          label="Banner / Push Image"
+          required
           file={imageFile}
           existingUrl={existingImage}
           onFileChange={handleImageChange}
           onRemove={handleImageRemove}
           error={errors.image}
+          spec={BANNER_IMAGE_SPECS.campaignBanner}
         />
 
         <Divider />
@@ -225,6 +245,19 @@ const CampaignFormDrawer = ({ open, campaign, saving, onClose, onSave }) => {
             }
           />
         </Stack>
+
+        {form.inAppNotification && (
+          <ImageUploadField
+            label="In-App Mobile Image"
+            required
+            file={inAppImageFile}
+            existingUrl={existingInAppImage}
+            onFileChange={handleInAppImageChange}
+            onRemove={handleInAppImageRemove}
+            error={errors.inAppImage}
+            spec={BANNER_IMAGE_SPECS.campaignInApp}
+          />
+        )}
 
         <Divider />
 
