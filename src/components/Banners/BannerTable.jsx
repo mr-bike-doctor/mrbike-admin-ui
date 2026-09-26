@@ -7,7 +7,7 @@ import jsPDF from "jspdf"
 import "jspdf-autotable"
 import ImagePreview from "../Global/ImagePreview"
 import ImageCropDialog from "../Common/ImageCropDialog"
-import { BANNER_IMAGE_SPECS, formatSpec, validateBannerImage } from "../../utils/bannerImageSpecs"
+import { BANNER_IMAGE_SPECS, formatSpec, optimizeBannerImage, validateBannerImage } from "../../utils/bannerImageSpecs"
 import { deleteBanner, updateBanner, getBaseServiceList } from "../../api"
 
 // Legacy banners land on the app's home slider, so they share the Home Hero
@@ -200,8 +200,15 @@ const BannerTable = ({
       return
     }
 
-    setImageError(null)
-    setNewImage(file)
+    try {
+      const optimized = await optimizeBannerImage(file, imageSpec)
+      setImageError(null)
+      setNewImage(optimized)
+    } catch (error) {
+      const message = error.message || "Could not optimize this image."
+      setImageError(message)
+      Swal.fire({ icon: "error", title: "Image Not Accepted", text: message })
+    }
   }
 
   const handleCropped = (croppedFile) => {

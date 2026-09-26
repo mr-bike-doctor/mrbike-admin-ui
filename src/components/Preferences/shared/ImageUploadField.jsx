@@ -2,7 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import { AddPhotoAlternate, Crop, Delete } from "@mui/icons-material";
 import ImageCropDialog from "../../Common/ImageCropDialog";
-import { formatSpec, MAX_IMAGE_LABEL, validateBannerImage } from "../../../utils/bannerImageSpecs";
+import {
+  formatSpec,
+  MAX_IMAGE_LABEL,
+  MAX_OPTIMIZED_IMAGE_LABEL,
+  optimizeBannerImage,
+  validateBannerImage,
+} from "../../../utils/bannerImageSpecs";
 
 // Reusable image upload box (upload → crop → preview → remove), generalized
 // from the pattern in LocationFeaturedCategoryForm so every Preferences module
@@ -68,8 +74,14 @@ const ImageUploadField = ({
       onFileChange(null);
       return;
     }
-    setSizeError(null);
-    onFileChange(selected);
+    try {
+      const optimized = await optimizeBannerImage(selected, spec);
+      setSizeError(null);
+      onFileChange(optimized);
+    } catch (err) {
+      setSizeError(err.message || "Could not optimize this image.");
+      onFileChange(null);
+    }
   };
 
   const handleCropped = (croppedFile) => {
@@ -98,7 +110,7 @@ const ImageUploadField = ({
   const hint =
     helperText ||
     (spec
-      ? `JPG, PNG, WEBP · exactly ${formatSpec(spec)} (Max ${MAX_IMAGE_LABEL})`
+      ? `JPG, PNG, WEBP · exactly ${formatSpec(spec)} · saved as high-quality WEBP (max ${MAX_OPTIMIZED_IMAGE_LABEL}; source max ${MAX_IMAGE_LABEL})`
       : `JPG, PNG, WEBP (Max ${MAX_IMAGE_LABEL})`);
 
   return (

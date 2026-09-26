@@ -46,10 +46,15 @@ export const BANNER_IMAGE_SPECS = {
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+// Files sent to S3 are much smaller than the source limit above. WebP at the
+// quality levels below is visually near-lossless for banner artwork while
+// avoiding multi-megabyte PNG downloads on every customer device.
+export const MAX_OPTIMIZED_IMAGE_BYTES = 800 * 1024;
 
 // Every "max size" string in the UI is derived from MAX_IMAGE_BYTES so the
 // number in the copy can never drift away from the number being enforced.
 export const MAX_IMAGE_LABEL = `${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))}MB`;
+export const MAX_OPTIMIZED_IMAGE_LABEL = `${Math.round(MAX_OPTIMIZED_IMAGE_BYTES / 1024)}KB`;
 
 // Cropping blows the chosen box back up to the spec's exact pixel size, so a
 // source much smaller than the target only ever produces a blurry banner.
@@ -207,38 +212,59 @@ const encodeCanvas = (canvas, type, quality) =>
     );
   });
 
-const croppedFileName = (name, spec, type) => {
-  const ext = type === "image/png" ? "png" : "jpg";
+const optimizedFileName = (name, spec) => {
   const base = (name || "banner").replace(/\.[^./\\]+$/, "") || "banner";
-  return `${base}-${spec.width}x${spec.height}.${ext}`;
+  return `${base}-${spec.width}x${spec.height}.webp`;
+};
+
+// Encode at a high WebP quality first and only step down slightly when a very
+// detailed creative misses the network-size budget. We intentionally never go
+// below 90: at these banner dimensions that keeps text and edges crisp while
+// still preventing the 1.5MB+ PNGs that caused long blank states in the app.
+const encodeOptimizedBanner = async (canvas) => {
+  let blob = null;
+  for (const quality of [0.94, 0.92, 0.9]) {
+    blob = await encodeCanvas(canvas, "image/webp", quality);
+    if (blob.type !== "image/webp") {
+      throw new Error("This browser cannot create optimized WEBP images. Please use the latest Chrome or Edge.");
+    }
+    if (blob.size <= MAX_OPTIMIZED_IMAGE_BYTES) return blob;
+  }
+  throw new Error(
+    `The optimized banner is still larger than ${MAX_OPTIMIZED_IMAGE_LABEL}. Try a less detailed image.`
+  );
+};
+
+const optimizedFileFromCanvas = async (canvas, file, spec) => {
+  const blob = await encodeOptimizedBanner(canvas);
+  return new File([blob], optimizedFileName(file.name, spec), {
+    type: "image/webp",
+    lastModified: Date.now(),
+  });
 };
 
 // Cuts `crop` out of `file` and re-encodes it at exactly the spec's size.
 // Returns a File ready to hand straight to the form's FormData.
-// PNG sources stay PNG so a creative with transparent corners survives; a
-// re-encode that busts the size cap falls back to progressively harder JPEG.
+// Every result becomes high-quality WebP. WebP preserves transparency, so PNG
+// artwork keeps transparent corners without keeping PNG's download weight.
 export const cropImageToSpec = async (file, spec, crop) => {
   const { img, revoke } = await loadImageElement(file);
   try {
     const box = clampCropBox(crop, img);
-    const keepPng = file.type === "image/png";
-    let type = keepPng ? "image/png" : "image/jpeg";
-    let blob = await encodeCanvas(renderCrop(img, spec, box, !keepPng), type, 0.92);
+    return optimizedFileFromCanvas(renderCrop(img, spec, box, false), file, spec);
+  } finally {
+    revoke();
+  }
+};
 
-    for (const quality of [0.85, 0.72, 0.6]) {
-      if (blob.size <= MAX_IMAGE_BYTES) break;
-      type = "image/jpeg";
-      blob = await encodeCanvas(renderCrop(img, spec, box, true), type, quality);
-    }
-
-    if (blob.size > MAX_IMAGE_BYTES) {
-      throw new Error(`The cropped image is still larger than ${MAX_IMAGE_LABEL}. Try a less detailed photo.`);
-    }
-
-    return new File([blob], croppedFileName(file.name, spec, type), {
-      type,
-      lastModified: Date.now(),
-    });
+// Exact-size uploads used to bypass the cropper and reach S3 unchanged. This
+// closes that path so a 1200x640 PNG is optimized just like a cropped image.
+export const optimizeBannerImage = async (file, spec) => {
+  if (!file || !spec) return file;
+  const { img, revoke } = await loadImageElement(file);
+  try {
+    const fullImage = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
+    return optimizedFileFromCanvas(renderCrop(img, spec, fullImage, false), file, spec);
   } finally {
     revoke();
   }

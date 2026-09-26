@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import { addBanner, getBaseServiceList } from "../../api";
 import ImageCropDialog from "../Common/ImageCropDialog";
-import { BANNER_IMAGE_SPECS, formatSpec, validateBannerImage } from "../../utils/bannerImageSpecs";
+import { BANNER_IMAGE_SPECS, formatSpec, optimizeBannerImage, validateBannerImage } from "../../utils/bannerImageSpecs";
 import { useNavigate } from "react-router-dom";
 
 // Legacy banners land on the app's home slider, so they share the Home Hero spec.
@@ -163,9 +163,16 @@ const BannerForm = () => {
       return;
     }
 
-    setErrors((prev) => ({ ...prev, image: null }));
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
+    try {
+      const optimized = await optimizeBannerImage(file, imageSpec);
+      setErrors((prev) => ({ ...prev, image: null }));
+      setImage(optimized);
+      setPreview(URL.createObjectURL(optimized));
+    } catch (error) {
+      const message = error.message || "Could not optimize this image.";
+      setErrors((prev) => ({ ...prev, image: message }));
+      Swal.fire({ icon: "error", title: "Image Not Accepted", text: message });
+    }
   };
 
   const handleCropped = (croppedFile) => {
