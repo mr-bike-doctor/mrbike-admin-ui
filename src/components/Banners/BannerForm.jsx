@@ -48,10 +48,14 @@ const BannerForm = () => {
   const [cropSource, setCropSource] = useState(null);
   const [errors, setErrors] = useState({});
   const [services, setServices] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
   const [googleReady, setGoogleReady] = useState(!!window.google?.maps?.places);
   const searchInputRef = useRef(null);
   const autocompleteRef = useRef(null);
+  // State updates are asynchronous, so keep an immediate lock as well. This
+  // prevents two rapid clicks from starting two requests in the same render.
+  const submitLockRef = useRef(false);
 
   // "Image already has text" turns the app's own overlay off, so the artwork
   // has to be the finished creative — and the crop dialog must stop shading
@@ -184,6 +188,7 @@ const BannerForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitLockRef.current) return;
 
     const { name, from_date, expiry_date, locationType, placeName, latitude, longitude, radius } = formData;
     const newErrors = {};
@@ -224,6 +229,9 @@ const BannerForm = () => {
       setErrors(newErrors);
       return;
     }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
 
     // Proceed if no errors
     const form = new FormData();
@@ -273,6 +281,9 @@ const BannerForm = () => {
         text: error.response?.data?.message || "Something went wrong!",
         icon: "error",
       });
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -455,8 +466,24 @@ const BannerForm = () => {
               </div>
 
               <div className="form-group col-lg-12 mb-3">
-                <button className="btn btn-primary mt-4 mb-5" type="submit">
-                  Create Banner
+                <button
+                  className="btn btn-primary mt-4 mb-5"
+                  type="submit"
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                        aria-hidden="true"
+                      />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Banner"
+                  )}
                 </button>
               </div>
             </form>
