@@ -34,9 +34,14 @@ const STATUS_STYLES = {
   completed: { bg: "#e2e8f0", color: "#334155", label: "Completed" },
 };
 
+// "delivered" is never populated by the backend (FCM does not report device
+// delivery back to the sender), so the push tiles show what FCM accepted or
+// rejected at send time instead.
 const STAT_TILES = [
-  { key: "sent", label: "Sent" },
-  { key: "delivered", label: "Delivered" },
+  { key: "sent", label: "Recipients" },
+  { key: "pushSent", label: "Push Sent" },
+  { key: "pushFailed", label: "Push Failed" },
+  { key: "noDeviceToken", label: "No Device Token" },
   { key: "opened", label: "Opened" },
   { key: "clicked", label: "Clicked" },
   { key: "conversionRate", label: "Conversion Rate" },
@@ -203,7 +208,13 @@ const Campaigns = () => {
         if (ids.length > 1) await bulkDeleteCampaigns(ids);
         else await deleteCampaign(ids[0]);
       } else if (mode === "send-now") {
-        await sendCampaignNow(ids[0]);
+        const res = await sendCampaignNow(ids[0]);
+        const d = res?.dispatch;
+        Swal.fire({
+          icon: d && d.pushFailed + d.noDeviceToken > 0 ? "warning" : "success",
+          title: "Campaign sent",
+          text: res?.message || "Campaign sent.",
+        });
       } else {
         if (ids.length > 1) await bulkUpdateCampaignStatus(ids, nextStatus);
         else await toggleCampaignStatus(ids[0], nextStatus);
