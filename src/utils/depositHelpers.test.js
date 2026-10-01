@@ -25,15 +25,15 @@ describe("Admin wallet deposits", () => {
     });
   });
 
-  test("shows Cashfree identifiers when a gateway payment exists", () => {
+  test("shows gateway identifiers when a gateway payment exists", () => {
     expect(normalizeDeposit({
       _id: "ledger-2",
       orderId: "CF-ORDER-1",
       detail: { gatewayResponse: { cf_payment_id: "CF-PAY-1" } },
     })).toMatchObject({
-      depositType: "Cashfree Top-up",
-      cashfreeOrderId: "CF-ORDER-1",
-      cashfreePaymentId: "CF-PAY-1",
+      depositType: "Online Top-up",
+      gatewayOrderId: "CF-ORDER-1",
+      gatewayPaymentId: "CF-PAY-1",
     });
   });
 

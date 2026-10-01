@@ -21,8 +21,8 @@ const columns = [
   { key: "status", label: "Status", render: (row) => <FinanceStatusBadge status={row.status} /> },
   { key: "createdAt", label: "Date", sortable: true, render: (row) => fmtDateTime(row.createdAt) },
   { key: "reference", label: "Reference" },
-  { key: "cashfreeOrderId", label: "Cashfree Order ID", render: (row) => row.cashfreeOrderId || "—" },
-  { key: "cashfreePaymentId", label: "Payment ID", render: (row) => row.cashfreePaymentId || "—" },
+  { key: "gatewayOrderId", label: "Gateway Order ID", render: (row) => row.gatewayOrderId || "—" },
+  { key: "gatewayPaymentId", label: "Payment ID", render: (row) => row.gatewayPaymentId || "—" },
   { key: "balanceBefore", label: "Balance Before", render: (row) => fmtCurrency(row.balanceBefore) },
   { key: "balanceAfter", label: "Balance After", render: (row) => <span style={{ fontWeight: 700 }}>{fmtCurrency(row.balanceAfter)}</span> },
 ];

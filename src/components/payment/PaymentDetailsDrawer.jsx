@@ -101,7 +101,7 @@ const PaymentDetailsDrawer = ({ open, onClose, payment }) => {
             <Divider sx={{ mb: 2 }} />
             <DetailItem label="Order ID" value={payment.orderId} copyable />
             <DetailItem label="Transaction ID" value={payment.transaction_id} copyable />
-            <DetailItem label="Cashfree Order ID" value={payment.cf_order_id} copyable />
+            {payment.cf_order_id && <DetailItem label="Legacy Gateway Order ID" value={payment.cf_order_id} copyable />}
             {!walletTopup && <DetailItem label="Booking ID" value={getReferenceId(payment)} copyable />}
           </Paper>
 

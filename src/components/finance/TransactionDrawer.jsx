@@ -183,8 +183,8 @@ const TransactionDrawer = ({ open, transactionId, fallbackData, onClose }) => {
             )}
 
             <SectionPaper title="Gateway Response">
-              <FinanceDetailItem label="Cashfree Order ID" value={(gateway.cf_payment_id || gateway.paymentId) ? (gateway.orderId || gateway.cf_order_id || data.orderId) : null} copyable />
-              <FinanceDetailItem label="Cashfree Payment ID" value={gateway.paymentId || gateway.cf_payment_id || gateway.transaction_id} copyable />
+              <FinanceDetailItem label="Gateway Order ID" value={(gateway.cf_payment_id || gateway.paymentId || gateway.transaction_id) ? (gateway.orderId || gateway.cf_order_id || data.orderId) : null} copyable />
+              <FinanceDetailItem label="Gateway Payment ID" value={gateway.paymentId || gateway.cf_payment_id || gateway.transaction_id} copyable />
               <FinanceDetailItem label="Gateway Status" value={gateway.status || gateway.txStatus} />
               <FinanceDetailItem label="Gateway Message" value={gateway.message} />
             </SectionPaper>
