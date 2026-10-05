@@ -49,6 +49,23 @@ const columns = [
       );
     },
   },
+  {
+    key: "raisedBy",
+    label: "Raised By",
+    minWidth: 180,
+    render: (t) => (
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+          {t.raisedBy?.name || (t.raisedBy ? "Unnamed" : "—")}
+        </Typography>
+        {t.raisedBy?.phone && (
+          <Typography variant="caption" sx={{ color: "#94a3b8" }} noWrap component="div">
+            {t.raisedBy.phone}
+          </Typography>
+        )}
+      </Box>
+    ),
+  },
   { key: "status", label: "Status", render: (t) => <StatusBadge status={t.status} /> },
   { key: "created_at", label: "Created", render: (t) => formatDateTime(t.created_at) },
   { key: "lastActivity", label: "Last Reply", render: (t) => moment(getLastActivityAt(t)).fromNow() },
@@ -85,6 +102,9 @@ const TicketListPage = ({ partyType, title, accentColor }) => {
         (t) =>
           t.subject?.toLowerCase().includes(q) ||
           String(t.ticketNo || t._id).toLowerCase().includes(q) ||
+          t.raisedBy?.name?.toLowerCase().includes(q) ||
+          t.raisedBy?.phone?.toLowerCase().includes(q) ||
+          t.raisedBy?.email?.toLowerCase().includes(q) ||
           (t.messages || []).some((m) => m.message?.toLowerCase().includes(q))
       );
     }
@@ -127,7 +147,7 @@ const TicketListPage = ({ partyType, title, accentColor }) => {
       <SupportHeader title={title} accentColor={accentColor} countLabel={`${scoped.length} tickets · ${scoped.filter((t) => t.status === "Open").length} open`} />
 
       <Box sx={{ mb: 2 }}>
-        <SupportSearch value={search} onChange={setSearch} placeholder="Search by ticket ID, subject, message…" />
+        <SupportSearch value={search} onChange={setSearch} placeholder="Search by ticket ID, name, phone, subject…" />
       </Box>
 
       <SupportFilters status={status} onStatusChange={setStatus} dateRange={dateRange} onDateRangeChange={setDateRange} hasActiveFilters={hasActiveFilters} onClearAll={clearAllFilters} />

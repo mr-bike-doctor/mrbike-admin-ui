@@ -36,11 +36,18 @@ const useTicketConversation = (ticketId) => {
   const myId = me?._id;
   const mySenderType = roleToSenderType(me?.role);
 
+  // Reply/status endpoints return the ticket without the admin-only
+  // `raisedBy` summary, so carry the last known one forward.
+  const keepRaisedBy = (data) => (prev) =>
+    data && !data.raisedBy && prev?.raisedBy && String(prev._id) === String(data._id)
+      ? { ...data, raisedBy: prev.raisedBy }
+      : data;
+
   const fetchTicket = useCallback(async () => {
     if (!ticketId) return;
     try {
       const data = await getTicketById(ticketId);
-      setTicket(data);
+      setTicket(keepRaisedBy(data));
       setError("");
     } catch (e) {
       setError(e?.message || "Failed to load ticket");
@@ -95,7 +102,7 @@ const useTicketConversation = (ticketId) => {
       setStatusLoading(true);
       try {
         const data = await updateTicketStatus(ticket._id, newStatus);
-        setTicket(data);
+        setTicket(keepRaisedBy(data));
         if (confirm) {
           Swal.fire({
             icon: "success",
@@ -134,7 +141,7 @@ const useTicketConversation = (ticketId) => {
         senderId: myId,
         senderType: mySenderType,
       });
-      setTicket(data);
+      setTicket(keepRaisedBy(data));
       setText("");
     } catch (e) {
       Swal.fire({ icon: "error", title: "Error", text: e?.message || "Error sending reply" });
