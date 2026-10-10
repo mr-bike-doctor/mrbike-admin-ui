@@ -200,6 +200,15 @@ export const updateDealer = async (formData) => {
 export const getDealerList = () =>
   apiRequest("GET", "/dealer/dealerList", {}, false);
 
+// Admin dealer list — stage tabs, search, sort, pagination and tab counts are
+// all resolved server-side. params: { stage, search, page, limit, sortBy, order }
+export const getAdminDealers = (params = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ""),
+  ).toString();
+  return apiRequest("GET", `/dealer/admin/dealers${query ? `?${query}` : ""}`, {}, false);
+};
+
 export const getDashboardCounts = () =>
   apiRequest("GET", "/adminauth/dashboard-counts", {}, false);
 

@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import { useDownloadExcel } from "react-export-table-to-excel";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { getAllBookings, updateDealerStatus, deleteDealer } from "../../api";
+import { updateDealerStatus, deleteDealer } from "../../api";
 import { notifyDealerStatusChanged } from "../../redux/dealerNotify";
 import {
   Table,
@@ -53,13 +53,17 @@ import {
   DeleteForever as DeleteForeverIcon,
 } from "@mui/icons-material";
 
+// Tab ids map 1:1 to the `stage` query of GET /dealer/admin/dealers.
 const FILTER_TABS = [
-  { id: "all",      label: "All" },
-  { id: "pending",  label: "Pending Approval" },
-  { id: "approved", label: "Approved" },
-  { id: "active",   label: "Active" },
-  { id: "inactive", label: "Inactive" },
-  { id: "blocked",  label: "Blocked" },
+  { id: "all",            label: "All" },
+  { id: "new",            label: "New Signups" },
+  { id: "waiting_review", label: "Waiting Review" },
+  { id: "reverification", label: "Re-verification" },
+  { id: "approved",       label: "Existing (Approved)" },
+  { id: "active",         label: "Active" },
+  { id: "inactive",       label: "Inactive" },
+  { id: "rejected",       label: "Rejected" },
+  { id: "blocked",        label: "Blocked" },
 ];
 
 const TABLE_HEADERS = [
@@ -67,19 +71,22 @@ const TABLE_HEADERS = [
   { id: "shopName",  label: "Shop Details", sortable: true },
   { id: "ownerName", label: "Owner",        sortable: true },
   { id: "contact",   label: "Contact Info", sortable: false },
-  { id: "location",  label: "Location",     sortable: true },
+  { id: "city",      label: "Location",     sortable: true },
   { id: "services",  label: "Services",     sortable: false },
   { id: "status",    label: "Status",       sortable: false },
-  { id: "cancelRate",label: "Perf.",        sortable: true },
+  { id: "cancelRate",label: "Perf.",        sortable: false },
   { id: "createdAt", label: "Created",      sortable: true },
   { id: "actions",   label: "Actions",      sortable: false },
 ];
 
-const getRegStatusConfig = (status) => {
-  const s = (status || "").toLowerCase();
-  if (s === "approved") return { color: "#38a169", bgColor: "#f0fff4", icon: <VerifiedIcon fontSize="inherit" />, label: "Approved" };
-  if (s === "rejected") return { color: "#e53e3e", bgColor: "#fff5f5", icon: <CancelIcon fontSize="inherit" />, label: "Rejected" };
-  return { color: "#d69e2e", bgColor: "#fffaf0", icon: <PendingIcon fontSize="inherit" />, label: "Pending" };
+const STAGE_STYLES = {
+  new:            { color: "#0369a1", bgColor: "#f0f9ff", icon: <PendingIcon fontSize="inherit" /> },
+  waiting_review: { color: "#d69e2e", bgColor: "#fffaf0", icon: <PendingIcon fontSize="inherit" /> },
+  reverification: { color: "#2b6cb0", bgColor: "#ebf8ff", icon: <PendingIcon fontSize="inherit" /> },
+  active:         { color: "#38a169", bgColor: "#f0fff4", icon: <VerifiedIcon fontSize="inherit" /> },
+  inactive:       { color: "#718096", bgColor: "#f7fafc", icon: <VerifiedIcon fontSize="inherit" /> },
+  rejected:       { color: "#e53e3e", bgColor: "#fff5f5", icon: <CancelIcon fontSize="inherit" /> },
+  blocked:        { color: "#e53e3e", bgColor: "#fff5f5", icon: <BlockIcon fontSize="inherit" /> },
 };
 
 const formatDate = (dateStr) => {
@@ -87,10 +94,25 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
+// Purely presentational: the parent page owns stage/search/sort/page and
+// fetches GET /dealer/admin/dealers, which does all filtering server-side.
 const DealerTable = ({
   triggerDownloadExcel,
   triggerDownloadPDF,
-  datas = [],
+  rows = [],
+  counts = {},
+  total = 0,
+  stage,
+  onStageChange,
+  searchInput,
+  onSearchChange,
+  page,
+  onPageChange,
+  rowsPerPage,
+  onRowsPerPageChange,
+  sortBy,
+  order,
+  onSort,
   text,
   onDealerDeleted,
   loading: parentLoading,
@@ -100,49 +122,8 @@ const DealerTable = ({
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const isSuperAdmin = !user?.role || user?.role?.toLowerCase() === "admin";
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [order, setOrder] = useState("desc");
-  const [orderBy, setOrderBy] = useState("createdAt");
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuDealer, setMenuDealer] = useState(null);
-  const [allBookings, setAllBookings] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(true);
-
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoadingBookings(true);
-        const response = await getAllBookings();
-        if (response.status === 200) setAllBookings(response.data);
-      } catch (error) {
-        console.error("Error fetching bookings:", error);
-      } finally {
-        setLoadingBookings(false);
-      }
-    };
-    fetchBookings();
-  }, []);
-
-  const dealerCancellationRates = useMemo(() => {
-    if (!allBookings.length) return {};
-    const stats = {};
-    allBookings.forEach(b => {
-      if (b.dealer_id?._id) {
-        const dId = b.dealer_id._id;
-        if (!stats[dId]) stats[dId] = { total: 0, cancelled: 0 };
-        stats[dId].total++;
-        if (b.status?.toLowerCase().includes("cancel")) stats[dId].cancelled++;
-      }
-    });
-    const rates = {};
-    Object.keys(stats).forEach(id => {
-      rates[id] = ((stats[id].cancelled / stats[id].total) * 100).toFixed(1);
-    });
-    return rates;
-  }, [allBookings]);
 
   const { onDownload } = useDownloadExcel({
     currentTableRef: tableRef.current,
@@ -161,75 +142,6 @@ const DealerTable = ({
     if (triggerDownloadExcel) triggerDownloadExcel.current = onDownload;
     if (triggerDownloadPDF) triggerDownloadPDF.current = exportToPDF;
   }, [onDownload]);
-
-  const filterCounts = useMemo(() => ({
-    all:      datas.length,
-    pending:  datas.filter(d => (d.registrationStatus || "").toLowerCase() === "pending").length,
-    approved: datas.filter(d => (d.registrationStatus || "").toLowerCase() === "approved").length,
-    active:   datas.filter(d => d.isActive === true).length,
-    inactive: datas.filter(d => !d.isActive).length,
-    blocked:  datas.filter(d => !!d.isBlocked).length,
-  }), [datas]);
-
-  const handleRequestSort = (property) => {
-    const isAsc = orderBy === property && order === "asc";
-    setOrder(isAsc ? "desc" : "asc");
-    setOrderBy(property);
-  };
-
-  const filteredData = useMemo(() => {
-    let result = datas;
-
-    if (activeFilter !== "all") {
-      result = result.filter(d => {
-        const rs = (d.registrationStatus || "").toLowerCase();
-        switch (activeFilter) {
-          case "pending":  return rs === "pending";
-          case "approved": return rs === "approved";
-          case "active":   return d.isActive === true;
-          case "inactive": return !d.isActive;
-          case "blocked":  return !!d.isBlocked;
-          default:         return true;
-        }
-      });
-    }
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(d =>
-        (d.shopName || "").toLowerCase().includes(term) ||
-        (d.ownerName || "").toLowerCase().includes(term) ||
-        (d.shopContact || d.phone || "").toLowerCase().includes(term) ||
-        (d.shopEmail || d.email || d.personalEmail || "").toLowerCase().includes(term)
-      );
-    }
-
-    return [...result].sort((a, b) => {
-      let vA, vB;
-      if (orderBy === "cancelRate") {
-        vA = parseFloat(dealerCancellationRates[a._id] || 0);
-        vB = parseFloat(dealerCancellationRates[b._id] || 0);
-      } else if (orderBy === "createdAt" || orderBy === "updatedAt") {
-        vA = new Date(a[orderBy] || 0).getTime();
-        vB = new Date(b[orderBy] || 0).getTime();
-      } else {
-        vA = String(a[orderBy] || "").toLowerCase();
-        vB = String(b[orderBy] || "").toLowerCase();
-      }
-      return order === "asc" ? (vA < vB ? -1 : vA > vB ? 1 : 0) : (vB < vA ? -1 : vB > vA ? 1 : 0);
-    });
-  }, [datas, searchTerm, activeFilter, order, orderBy, dealerCancellationRates]);
-
-  const currentData = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
-  }, [filteredData, page, rowsPerPage]);
-
-  const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => {
-    setRowsPerPage(parseInt(e.target.value, 10));
-    setPage(0);
-  };
 
   const handleMenuOpen = (event, dealer) => {
     setAnchorEl(event.currentTarget);
@@ -342,8 +254,8 @@ const DealerTable = ({
         sx={{ mb: 2, borderRadius: 3, border: "1px solid #edf2f7", overflow: "hidden" }}
       >
         <Tabs
-          value={activeFilter}
-          onChange={(_, v) => { setActiveFilter(v); setPage(0); }}
+          value={stage}
+          onChange={(_, v) => onStageChange(v)}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -366,14 +278,14 @@ const DealerTable = ({
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                   {tab.label}
                   <Chip
-                    label={filterCounts[tab.id]}
+                    label={counts[tab.id] ?? 0}
                     size="small"
                     sx={{
                       height: 18,
                       fontSize: "0.65rem",
                       fontWeight: 700,
-                      bgcolor: activeFilter === tab.id ? "#2e83ff" : "#f1f5f9",
-                      color: activeFilter === tab.id ? "white" : "#64748b",
+                      bgcolor: stage === tab.id ? "#2e83ff" : "#f1f5f9",
+                      color: stage === tab.id ? "white" : "#64748b",
                       "& .MuiChip-label": { px: 0.75 },
                       transition: "all 0.2s",
                     }}
@@ -390,9 +302,9 @@ const DealerTable = ({
         <TextField
           variant="outlined"
           size="small"
-          placeholder="Search by Dealer Name, Shop Name, Phone, Email..."
-          value={searchTerm}
-          onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+          placeholder="Search by Shop, Owner, Phone, Email, City or MRBD ID..."
+          value={searchInput}
+          onChange={(e) => onSearchChange(e.target.value)}
           sx={{ width: { xs: "100%", sm: 460 }, backgroundColor: "white", borderRadius: 2 }}
           InputProps={{
             startAdornment: (
@@ -403,7 +315,7 @@ const DealerTable = ({
           }}
         />
         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-          {filteredData.length} {filteredData.length === 1 ? "dealer" : "dealers"} found
+          {total} {total === 1 ? "dealer" : "dealers"} found
         </Typography>
       </Box>
 
@@ -423,9 +335,9 @@ const DealerTable = ({
                 >
                   {h.sortable ? (
                     <TableSortLabel
-                      active={orderBy === h.id}
-                      direction={orderBy === h.id ? order : "asc"}
-                      onClick={() => handleRequestSort(h.id)}
+                      active={sortBy === h.id}
+                      direction={sortBy === h.id ? order : "asc"}
+                      onClick={() => onSort(h.id)}
                       sx={{
                         color: "white !important",
                         "&.MuiTableSortLabel-active": { color: "white !important" },
@@ -452,7 +364,7 @@ const DealerTable = ({
                   </Typography>
                 </TableCell>
               </TableRow>
-            ) : filteredData.length === 0 ? (
+            ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontStyle: "italic" }}>
@@ -461,16 +373,11 @@ const DealerTable = ({
                 </TableCell>
               </TableRow>
             ) : (
-              currentData.map((dealer, index) => {
-                const regStatus = getRegStatusConfig(dealer.registrationStatus);
-                const cancelRate = dealerCancellationRates[dealer._id] || "0.0";
+              rows.map((dealer, index) => {
+                const stageStyle = STAGE_STYLES[dealer.stage] || STAGE_STYLES.new;
+                const cancelRate = Number(dealer.bookingStats?.cancelRate || 0).toFixed(1);
                 const isHighCancel = parseFloat(cancelRate) > 15;
-                const isBlocked = !!dealer.isBlocked;
-                // A "pending" doc on an already-approved dealer only happens via
-                // re-upload after a prior rejection/request (see DocumentsTab).
-                const needsReReview =
-                  (dealer.registrationStatus || "").toLowerCase() === "approved" &&
-                  Object.values(dealer.documentVerification || {}).some((v) => v === "pending");
+                const isBlocked = dealer.stage === "blocked";
 
                 return (
                   <TableRow
@@ -603,81 +510,34 @@ const DealerTable = ({
                       </Stack>
                     </TableCell>
 
-                    {/* Status chips */}
-                    <TableCell sx={{ minWidth: 110 }}>
-                      <Stack spacing={0.5} alignItems="flex-start">
-                        <Chip
-                          icon={regStatus.icon}
-                          label={regStatus.label}
-                          size="small"
-                          sx={{
-                            height: 22,
-                            fontSize: "0.7rem",
-                            fontWeight: 700,
-                            color: regStatus.color,
-                            bgcolor: regStatus.bgColor,
-                            border: `1px solid ${regStatus.color}44`,
-                            borderRadius: 1,
-                            "& .MuiChip-label": { px: 0.75 },
-                          }}
-                        />
-                        <Chip
-                          label={dealer.isActive ? "Active" : "Inactive"}
-                          size="small"
-                          sx={{
-                            height: 20,
-                            fontSize: "0.65rem",
-                            fontWeight: 700,
-                            color: dealer.isActive ? "#38a169" : "#718096",
-                            bgcolor: dealer.isActive ? "#f0fff4" : "#f7fafc",
-                            border: `1px solid ${dealer.isActive ? "#38a16944" : "#71809644"}`,
-                            borderRadius: 1,
-                            "& .MuiChip-label": { px: 0.75 },
-                          }}
-                        />
-                        {isBlocked && (
-                          <Chip
-                            icon={<BlockIcon sx={{ fontSize: "11px !important" }} />}
-                            label="Blocked"
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: "0.65rem",
-                              fontWeight: 700,
-                              color: "#e53e3e",
-                              bgcolor: "#fff5f5",
-                              border: "1px solid #e53e3e44",
-                              borderRadius: 1,
-                              "& .MuiChip-label": { px: 0.75 },
-                            }}
-                          />
-                        )}
-                        {needsReReview && (
-                          <Chip
-                            icon={<PendingIcon sx={{ fontSize: "11px !important" }} />}
-                            label="Re-review Pending"
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: "0.65rem",
-                              fontWeight: 700,
-                              color: "#2b6cb0",
-                              bgcolor: "#ebf8ff",
-                              border: "1px solid #2b6cb044",
-                              borderRadius: 1,
-                              "& .MuiChip-label": { px: 0.75 },
-                            }}
-                          />
-                        )}
-                      </Stack>
+                    {/* Stage (computed server-side) */}
+                    <TableCell sx={{ minWidth: 120 }}>
+                      <Chip
+                        icon={stageStyle.icon}
+                        label={dealer.stageLabel || dealer.stage}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          color: stageStyle.color,
+                          bgcolor: stageStyle.bgColor,
+                          border: `1px solid ${stageStyle.color}44`,
+                          borderRadius: 1,
+                          "& .MuiChip-label": { px: 0.75 },
+                        }}
+                      />
                     </TableCell>
 
                     {/* Performance */}
                     <TableCell sx={{ minWidth: 80 }}>
-                      {loadingBookings ? (
-                        <CircularProgress size={14} />
-                      ) : (
-                        <Tooltip title={isHighCancel ? "High cancellation rate detected!" : "Dealer performance"}>
+                      <Tooltip
+                        title={
+                          isHighCancel
+                            ? "High cancellation rate detected!"
+                            : `${dealer.bookingStats?.cancelled || 0} of ${dealer.bookingStats?.total || 0} bookings cancelled`
+                        }
+                      >
                           <Chip
                             label={`${cancelRate}%`}
                             size="small"
@@ -686,8 +546,7 @@ const DealerTable = ({
                             icon={<AnalyticsIcon sx={{ fontSize: "14px !important" }} />}
                             sx={{ fontWeight: 700, height: 24 }}
                           />
-                        </Tooltip>
-                      )}
+                      </Tooltip>
                     </TableCell>
 
                     {/* Created Date */}
@@ -714,13 +573,13 @@ const DealerTable = ({
         </Table>
 
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
-          count={filteredData.length}
+          count={total}
           rowsPerPage={rowsPerPage}
           page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
+          onPageChange={(_, p) => onPageChange(p)}
+          onRowsPerPageChange={(e) => onRowsPerPageChange(parseInt(e.target.value, 10))}
           sx={{ borderTop: "1px solid #edf2f7" }}
         />
       </TableContainer>

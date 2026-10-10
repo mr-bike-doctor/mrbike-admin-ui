@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import UserTable from "../../components/Dealers/DealerTable";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { getDealerList } from "../../api";
+import { getAdminDealers } from "../../api";
 import { selectDealerRefreshVersion } from "../../redux/slices/dealerRefreshSlice";
 import {
   Box,
@@ -21,43 +21,87 @@ import {
 } from "@mui/icons-material";
 import DealerStats from "../../components/Dealers/DealerStats";
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 const Dealer = () => {
-  const [data, setData] = useState([]);
-  const [refresh, setRefresh] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [counts, setCounts] = useState({});
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(false);
   const dealerRefreshVersion = useSelector(selectDealerRefreshVersion);
+
+  // Every one of these is sent to the server — the panel never filters,
+  // searches, sorts or paginates the dealer list itself.
+  const [stage, setStage] = useState("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [order, setOrder] = useState("desc");
 
   const triggerDownloadExcel = useRef(null);
   const triggerDownloadPDF = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    let cancelled = false;
     const fetchDealers = async () => {
       setLoading(true);
       try {
-        const response = await getDealerList();
-        if (
-          response.status === true ||
-          response.status === 200 ||
-          response.success === true
-        ) {
-          setData(response.data || response.dealers || []);
-        }
+        const response = await getAdminDealers({
+          stage,
+          search,
+          page: page + 1,
+          limit: rowsPerPage,
+          sortBy,
+          order,
+        });
+        if (cancelled || !response?.status) return;
+        setRows(response.data || []);
+        setCounts(response.counts || {});
+        setTotal(response.pagination?.total || 0);
       } catch (error) {
         console.error("Error fetching dealer list:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchDealers();
+    return () => {
+      cancelled = true;
+    };
     // dealerRefreshVersion covers mutations triggered from the Dealer Details page,
     // so the list stays in sync even if it wasn't the source of the change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refresh, dealerRefreshVersion]);
+  }, [stage, search, page, rowsPerPage, sortBy, order, refresh, dealerRefreshVersion]);
 
   const handleRefresh = () => {
     setRefresh((prev) => !prev);
+  };
+
+  const handleStageChange = (next) => {
+    setStage(next);
+    setPage(0);
+  };
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setOrder("asc");
+    }
+    setPage(0);
   };
 
   return (
@@ -167,12 +211,28 @@ const Dealer = () => {
           </Box>
 
           {/* Stats Section */}
-          <DealerStats datas={data} />
+          <DealerStats counts={counts} />
 
           {/* Table Section */}
           <UserTable
-            datas={data}
+            rows={rows}
+            counts={counts}
+            total={total}
             loading={loading}
+            stage={stage}
+            onStageChange={handleStageChange}
+            searchInput={searchInput}
+            onSearchChange={setSearchInput}
+            page={page}
+            onPageChange={setPage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(n) => {
+              setRowsPerPage(n);
+              setPage(0);
+            }}
+            sortBy={sortBy}
+            order={order}
+            onSort={handleSort}
             triggerDownloadExcel={triggerDownloadExcel}
             triggerDownloadPDF={triggerDownloadPDF}
             text={"Dealers"}

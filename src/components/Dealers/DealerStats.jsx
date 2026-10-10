@@ -3,7 +3,7 @@ import { Box, Card, CardContent, Typography, Grid } from "@mui/material";
 import {
   Storefront as RetailIcon,
   CheckCircle as ActiveIcon,
-  Verified as VerifiedIcon,
+  PersonAddAlt1 as NewIcon,
   PendingActions as PendingIcon,
 } from "@mui/icons-material";
 
@@ -40,11 +40,12 @@ const StatCard = ({ title, value, icon, color, bgColor }) => (
   </Card>
 );
 
-const DealerStats = ({ datas = [] }) => {
-  const total = datas.length;
-  const active = datas.filter(d => d.isActive).length;
-  const approved = datas.filter(d => d.registrationStatus === "Approved").length;
-  const pending = datas.filter(d => d.registrationStatus !== "Approved").length;
+// Counts come straight from GET /dealer/admin/dealers — no client-side tallying.
+const DealerStats = ({ counts = {} }) => {
+  const total = counts.all ?? 0;
+  const active = counts.active ?? 0;
+  const newSignups = counts.new ?? 0;
+  const waitingReview = (counts.waiting_review ?? 0) + (counts.reverification ?? 0);
 
   return (
     <Box sx={{ mb: 4 }}>
@@ -69,17 +70,17 @@ const DealerStats = ({ datas = [] }) => {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Approved"
-            value={approved}
-            icon={<VerifiedIcon />}
+            title="New Signups"
+            value={newSignups}
+            icon={<NewIcon />}
             color="#805ad5"
             bgColor="#faf5ff"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Pending Approval"
-            value={pending}
+            title="Waiting Review"
+            value={waitingReview}
             icon={<PendingIcon />}
             color="#e53e3e"
             bgColor="#fff5f5"
