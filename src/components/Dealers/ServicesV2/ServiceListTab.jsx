@@ -63,14 +63,12 @@ const ServiceListTab = ({
   const masterServices =
     serviceType === "base" ? baseServices : additionalServices;
 
+  // Refetch on mount — a session-long Redux copy misses services created after
+  // the first load (see Step1SelectService).
   useEffect(() => {
-    if (serviceType === "base" && baseServices.length === 0) {
-      dispatch(fetchBaseServices());
-    }
-    if (serviceType === "additional" && additionalServices.length === 0) {
-      dispatch(fetchAdditionalServices());
-    }
-  }, [serviceType, dispatch, baseServices.length, additionalServices.length]);
+    if (serviceType === "base") dispatch(fetchBaseServices());
+    if (serviceType === "additional") dispatch(fetchAdditionalServices());
+  }, [serviceType, dispatch]);
 
   // Group flat pricing entries by serviceId → one table row per service
   const rows = useMemo(() => {

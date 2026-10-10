@@ -25,14 +25,13 @@ const Step1SelectService = ({ state, dispatch: wizardDispatch, serviceType }) =>
   );
   const services = serviceType === "base" ? baseServices : additionalServices;
 
+  // Always refetch on open: the list lives in Redux for the whole session, so
+  // a "load only when empty" guard hid services the admin created after the
+  // first load until a full page reload.
   useEffect(() => {
-    if (serviceType === "base" && baseServices.length === 0) {
-      reduxDispatch(fetchBaseServices());
-    }
-    if (serviceType === "additional" && additionalServices.length === 0) {
-      reduxDispatch(fetchAdditionalServices());
-    }
-  }, [serviceType, reduxDispatch, baseServices.length, additionalServices.length]);
+    if (serviceType === "base") reduxDispatch(fetchBaseServices());
+    if (serviceType === "additional") reduxDispatch(fetchAdditionalServices());
+  }, [serviceType, reduxDispatch]);
 
   return (
     <Box>
