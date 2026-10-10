@@ -18,17 +18,12 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  IconButton,
   Avatar,
   TablePagination,
-  TextField,
-  InputAdornment,
   TableSortLabel,
   Stack,
 } from "@mui/material";
 import {
-  Search as SearchIcon,
-  FileDownload as DownloadIcon,
   TwoWheeler as TwoWheelerIcon,
   Storefront as StorefrontIcon,
 } from "@mui/icons-material";
@@ -50,7 +45,7 @@ const BookingTable = ({
   const tableRef = useRef(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
