@@ -93,11 +93,20 @@ const Step2SelectCompanies = ({ state, dispatch: wizardDispatch }) => {
   );
 
   const handleSelectAll = useCallback(() => {
+    const visibleIds = filtered.map((c) => c._id);
     wizardDispatch({
       type: "SET_COMPANIES",
-      payload: filtered.map((c) => c._id),
+      payload: Array.from(new Set([...state.selectedCompanyIds, ...visibleIds])),
     });
-  }, [filtered, wizardDispatch]);
+  }, [filtered, state.selectedCompanyIds, wizardDispatch]);
+
+  const handleClearVisible = useCallback(() => {
+    const visibleIds = new Set(filtered.map((c) => c._id));
+    wizardDispatch({
+      type: "SET_COMPANIES",
+      payload: state.selectedCompanyIds.filter((id) => !visibleIds.has(id)),
+    });
+  }, [filtered, state.selectedCompanyIds, wizardDispatch]);
 
   const handleClearAll = useCallback(() => {
     wizardDispatch({ type: "SET_COMPANIES", payload: [] });
@@ -141,15 +150,15 @@ const Step2SelectCompanies = ({ state, dispatch: wizardDispatch }) => {
             disabled={filtered.length === 0}
             sx={{ textTransform: "none", fontWeight: 600 }}
           >
-            Select All ({filtered.length})
+            Select shown ({filtered.length})
           </Button>
           <Button
             size="small"
             color="inherit"
-            onClick={handleClearAll}
+            onClick={search.trim() ? handleClearVisible : handleClearAll}
             sx={{ textTransform: "none", fontWeight: 600 }}
           >
-            Clear
+            {search.trim() ? "Deselect shown" : "Clear all"}
           </Button>
           <Chip
             label={`${state.selectedCompanyIds.length} selected`}

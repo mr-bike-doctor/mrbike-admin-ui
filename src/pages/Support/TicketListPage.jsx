@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Chip, Typography } from "@mui/material";
 import moment from "moment";
 import { useSearchParams } from "react-router-dom";
 import useTicketList from "../../hooks/useTicketList";
@@ -38,7 +38,17 @@ const columns = [
             />
           )}
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: t.unread ? 700 : 600 }} noWrap>{t.subject}</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Typography variant="body2" sx={{ fontWeight: t.unread ? 700 : 600 }} noWrap>{t.subject}</Typography>
+              {t.source === "booking_support" && (
+                <Chip
+                  size="small"
+                  label={t.priority === "urgent" ? "URGENT" : "BOOKING"}
+                  color={t.priority === "urgent" ? "error" : "warning"}
+                  sx={{ height: 19, fontSize: "0.58rem", fontWeight: 800 }}
+                />
+              )}
+            </Box>
             {lastMessage?.message && (
               <Typography variant="caption" sx={{ color: "#94a3b8" }} noWrap component="div" style={{ maxWidth: 300 }}>
                 {lastMessage.message}

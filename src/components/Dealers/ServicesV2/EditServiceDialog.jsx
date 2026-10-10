@@ -31,6 +31,10 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import SearchIcon from "@mui/icons-material/Search";
@@ -134,6 +138,10 @@ const EditServiceDialog = ({
 
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [ccFilter, setCcFilter] = useState("all");
+  const [priceStatus, setPriceStatus] = useState("all");
+  const [bulkPrice, setBulkPrice] = useState("");
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
   const [addSelection, setAddSelection] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,14 +189,22 @@ const EditServiceDialog = ({
   }, [currentBikes]);
 
   const filteredCurrent = useMemo(() => {
-    if (!search.trim()) return currentBikes;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return currentBikes.filter(
-      (b) =>
-        b.variant_name?.toLowerCase().includes(q) ||
-        b.company_name?.toLowerCase().includes(q)
+      (b) => {
+        const price = pricing[b._id];
+        const filled = price !== undefined && price !== "" && Number(price) > 0;
+        const matchesSearch = !q ||
+          b.variant_name?.toLowerCase().includes(q) ||
+          b.model_name?.toLowerCase().includes(q) ||
+          b.company_name?.toLowerCase().includes(q);
+        return matchesSearch &&
+          (companyFilter === "all" || b.company_name === companyFilter) &&
+          (ccFilter === "all" || Number(b.cc || 0) === Number(ccFilter)) &&
+          (priceStatus === "all" || (priceStatus === "missing" ? !filled : filled));
+      }
     );
-  }, [currentBikes, search]);
+  }, [currentBikes, search, companyFilter, ccFilter, priceStatus, pricing]);
 
   const availableToAdd = useMemo(() => {
     const currentIds = new Set(
@@ -206,6 +222,14 @@ const EditServiceDialog = ({
   const handlePriceChange = useCallback((bikeId, price) => {
     setPricing((prev) => ({ ...prev, [bikeId]: price }));
   }, []);
+
+  const handleBulkPrice = useCallback((targetBikes) => {
+    if (!bulkPrice || Number(bulkPrice) <= 0 || targetBikes.length === 0) return;
+    setPricing((prev) => ({
+      ...prev,
+      ...Object.fromEntries(targetBikes.map((bike) => [bike._id, bulkPrice])),
+    }));
+  }, [bulkPrice]);
 
   const handleRemoveBike = useCallback((bikeId) => {
     setCurrentBikes((prev) => prev.filter((b) => b._id !== bikeId));
@@ -339,10 +363,17 @@ const EditServiceDialog = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="xl"
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 3, minHeight: { xs: "unset", sm: 540 }, maxHeight: "92vh", m: { xs: 1, sm: 2 } },
+        sx: {
+          borderRadius: 3,
+          width: { xs: "calc(100% - 16px)", sm: "min(1440px, calc(100% - 32px))" },
+          height: { xs: "calc(100% - 16px)", sm: "94vh" },
+          maxHeight: { xs: "calc(100% - 16px)", sm: "94vh" },
+          m: { xs: 1, sm: 2 },
+          overflow: "hidden",
+        },
       }}
     >
       {/* Header */}
@@ -407,6 +438,24 @@ const EditServiceDialog = ({
         {/* ── Tab 0: Current bikes + prices ── */}
         {activeTab === 0 && (
           <Box>
+            <Paper
+              elevation={0}
+              sx={{ p: 2, mb: 2, bgcolor: "primary.50", border: "1px solid", borderColor: "primary.light", borderRadius: 2 }}
+            >
+              <Stack direction={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} gap={1.5}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" fontWeight={800}>Quick price update</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Apply one price to all bikes, or use filters below and apply it only to shown bikes.
+                  </Typography>
+                </Box>
+                <PriceInput bikeId="bulk" value={bulkPrice} onChange={(_, value) => setBulkPrice(value)} />
+                <Button variant="contained" disabled={!bulkPrice || Number(bulkPrice) <= 0}
+                  onClick={() => handleBulkPrice(currentBikes)} sx={{ textTransform: "none", fontWeight: 800 }}>
+                  Apply to all ({currentBikes.length})
+                </Button>
+              </Stack>
+            </Paper>
             {/* ── Company mapping chips ── */}
             {companyMappings.length > 0 && (
               <Paper
@@ -508,7 +557,7 @@ const EditServiceDialog = ({
             )}
 
             {/* ── Search + price count ── */}
-            <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={1} alignItems={{ lg: "center" }} mb={1}>
               <TextField
                 size="small"
                 placeholder="Search current bikes…"
@@ -524,11 +573,39 @@ const EditServiceDialog = ({
                     </InputAdornment>
                   ),
                 }}
-                sx={{ width: 260 }}
+                sx={{ minWidth: 240, flex: 1 }}
               />
-              <Typography variant="body2" color="text.secondary">
-                {filledCount}/{currentBikes.length} prices filled
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Company</InputLabel>
+                <Select value={companyFilter} label="Company" onChange={(e) => setCompanyFilter(e.target.value)}>
+                  <MenuItem value="all">All companies</MenuItem>
+                  {companyMappings.map(({ name }) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>CC</InputLabel>
+                <Select value={ccFilter} label="CC" onChange={(e) => setCcFilter(e.target.value)}>
+                  <MenuItem value="all">All CC</MenuItem>
+                  {ccMappings.map(({ cc }) => <MenuItem key={cc} value={cc}>{cc} cc</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 135 }}>
+                <InputLabel>Status</InputLabel>
+                <Select value={priceStatus} label="Status" onChange={(e) => setPriceStatus(e.target.value)}>
+                  <MenuItem value="all">All prices</MenuItem>
+                  <MenuItem value="missing">Missing only</MenuItem>
+                  <MenuItem value="filled">Priced only</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} gap={1} mb={2}>
+              <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
+                Showing {filteredCurrent.length}/{currentBikes.length} · {filledCount} priced
               </Typography>
+              <Button variant="outlined" disabled={!bulkPrice || Number(bulkPrice) <= 0 || filteredCurrent.length === 0}
+                onClick={() => handleBulkPrice(filteredCurrent)} sx={{ textTransform: "none", fontWeight: 700 }}>
+                Apply ₹{bulkPrice || "—"} to shown ({filteredCurrent.length})
+              </Button>
             </Stack>
 
             <TableContainer
@@ -538,7 +615,7 @@ const EditServiceDialog = ({
                 border: "1px solid",
                 borderColor: "divider",
                 borderRadius: 2,
-                maxHeight: 320,
+                maxHeight: 390,
               }}
             >
               <Table size="small" stickyHeader>

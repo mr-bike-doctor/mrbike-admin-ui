@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   Box,
   Typography,
@@ -13,13 +13,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
+import SearchIcon from "@mui/icons-material/Search";
 import { groupBikesByCC } from "./utils/ccGrouping";
 
 const Step4SelectCCRanges = ({ state, dispatch }) => {
+  const [search, setSearch] = useState("");
   const validBikes = useMemo(
     () => state.selectedBikes.filter((b) => Number(b.cc || b.engine_cc || 0) > 0),
     [state.selectedBikes]
@@ -32,7 +36,10 @@ const Step4SelectCCRanges = ({ state, dispatch }) => {
   // Group valid bikes by CC value, sorted ascending
   const ccGroups = useMemo(() => groupBikesByCC(validBikes), [validBikes]);
 
-  const allCCValues = useMemo(() => ccGroups.map((g) => g.cc), [ccGroups]);
+  const filteredGroups = useMemo(() => {
+    const query = search.trim();
+    return query ? ccGroups.filter((group) => String(group.cc).includes(query)) : ccGroups;
+  }, [ccGroups, search]);
 
   const handleToggleCC = useCallback(
     (cc) => {
@@ -46,8 +53,19 @@ const Step4SelectCCRanges = ({ state, dispatch }) => {
   );
 
   const handleSelectAll = useCallback(() => {
-    dispatch({ type: "SET_CC_RANGES", payload: allCCValues });
-  }, [allCCValues, dispatch]);
+    dispatch({
+      type: "SET_CC_RANGES",
+      payload: Array.from(new Set([...state.selectedCCRanges, ...filteredGroups.map((group) => group.cc)])),
+    });
+  }, [filteredGroups, state.selectedCCRanges, dispatch]);
+
+  const handleClearShown = useCallback(() => {
+    const shown = new Set(filteredGroups.map((group) => group.cc));
+    dispatch({
+      type: "SET_CC_RANGES",
+      payload: state.selectedCCRanges.filter((cc) => !shown.has(cc)),
+    });
+  }, [filteredGroups, state.selectedCCRanges, dispatch]);
 
   const handleClearAll = useCallback(() => {
     dispatch({ type: "SET_CC_RANGES", payload: [] });
@@ -169,25 +187,35 @@ const Step4SelectCCRanges = ({ state, dispatch }) => {
             Available CC Ranges:
           </Typography>
           <Box flex={1} />
+          <TextField
+            size="small"
+            placeholder="Find CC…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment>,
+            }}
+            sx={{ width: 150 }}
+          />
           <Button
             size="small"
             onClick={handleSelectAll}
             sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.75rem" }}
           >
-            Select All
+            Select shown ({filteredGroups.length})
           </Button>
           <Button
             size="small"
             color="inherit"
-            onClick={handleClearAll}
+            onClick={search.trim() ? handleClearShown : handleClearAll}
             sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.75rem" }}
           >
-            Clear
+            {search.trim() ? "Deselect shown" : "Clear all"}
           </Button>
         </Stack>
 
         <Stack direction="row" flexWrap="wrap" gap={1}>
-          {ccGroups.map(({ cc, bikes }) => {
+          {filteredGroups.map(({ cc, bikes }) => {
             const isSelected = state.selectedCCRanges.includes(cc);
             return (
               <Chip

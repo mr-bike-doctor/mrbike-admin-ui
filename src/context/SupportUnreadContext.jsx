@@ -8,9 +8,11 @@ import React, {
 } from "react";
 import {
   getSupportUnreadCount,
+  invalidateTicketListCache,
   markTicketRead as markTicketReadApi,
 } from "../services/ticketService";
 import { getSocket } from "../socket";
+import Swal from "sweetalert2";
 
 const SupportUnreadContext = createContext({
   unreadCount: 0,
@@ -89,10 +91,27 @@ export const SupportUnreadProvider = ({ children }) => {
     join();
     socket.on("connect", join);
     socket.on("support:unread:changed", refreshUnreadCount);
+    const handleNewBookingIssue = (event = {}) => {
+      refreshUnreadCount();
+      invalidateTicketListCache();
+      window.dispatchEvent(new CustomEvent("support:ticket:new", { detail: event }));
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: event.priority === "urgent" ? 7000 : 5000,
+        timerProgressBar: true,
+        icon: event.priority === "urgent" ? "warning" : "info",
+        title: event.priority === "urgent" ? "Urgent booking issue" : "New booking issue",
+        text: event.issueLabel || event.subject || "A customer needs help with a booking.",
+      });
+    };
+    socket.on("support:booking:new", handleNewBookingIssue);
 
     return () => {
       socket.off("connect", join);
       socket.off("support:unread:changed", refreshUnreadCount);
+      socket.off("support:booking:new", handleNewBookingIssue);
     };
   }, [refreshUnreadCount]);
 

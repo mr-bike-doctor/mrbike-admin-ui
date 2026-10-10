@@ -9,6 +9,10 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import SearchIcon from "@mui/icons-material/Search";
@@ -48,6 +52,7 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
 
   const [search, setSearch] = useState("");
   const [ccFilter, setCcFilter] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all");
   // Controlled selection — array of bike id strings
   const [selectionModel, setSelectionModel] = useState(
     () => state.selectedBikes.map((b) => b._id || b.variant_id)
@@ -64,6 +69,14 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
     reduxDispatch(fetchBikesByCompany(ids));
   }, [state.selectedCompanyIds, reduxDispatch]);
 
+  const companyOptions = useMemo(
+    () =>
+      [...new Set(bikes.map((bike) => bike.company_name).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b)
+      ),
+    [bikes]
+  );
+
   const filteredBikes = useMemo(() => {
     let result = bikes;
 
@@ -75,6 +88,10 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
           b.model_name?.toLowerCase().includes(q) ||
           b.company_name?.toLowerCase().includes(q)
       );
+    }
+
+    if (companyFilter !== "all") {
+      result = result.filter((bike) => bike.company_name === companyFilter);
     }
 
     if (ccFilter.trim()) {
@@ -92,7 +109,7 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
       id: b._id || b.variant_id,
       cc: Number(b.cc || b.engine_cc || 0),
     }));
-  }, [bikes, search, ccFilter]);
+  }, [bikes, search, ccFilter, companyFilter]);
 
   const handleSelectionChange = useCallback(
     (newIds) => {
@@ -122,6 +139,19 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
     setSelectionModel([]);
     wizardDispatch({ type: "SET_BIKES", payload: [] });
   }, [wizardDispatch]);
+
+  const handleDeselectVisible = useCallback(() => {
+    const visibleIds = new Set(filteredBikes.map((bike) => bike.id));
+    const remaining = selectionModel.filter((id) => !visibleIds.has(id));
+    setSelectionModel(remaining);
+    const bikeMap = new Map(bikes.map((bike) => [bike._id || bike.variant_id, bike]));
+    wizardDispatch({
+      type: "SET_BIKES",
+      payload: remaining.map((id) => bikeMap.get(id)).filter(Boolean),
+    });
+  }, [filteredBikes, selectionModel, bikes, wizardDispatch]);
+
+  const hasFilters = search.trim() || ccFilter.trim() || companyFilter !== "all";
 
   return (
     <Box>
@@ -155,6 +185,21 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
           }}
           sx={{ flex: 2, minWidth: 180 }}
         />
+        <FormControl size="small" sx={{ flex: 1, minWidth: 170, maxWidth: 220 }}>
+          <InputLabel>Bike company</InputLabel>
+          <Select
+            value={companyFilter}
+            label="Bike company"
+            onChange={(event) => setCompanyFilter(event.target.value)}
+          >
+            <MenuItem value="all">All companies</MenuItem>
+            {companyOptions.map((company) => (
+              <MenuItem key={company} value={company}>
+                {company}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <TextField
           size="small"
           placeholder="CC filter (e.g. 125)"
@@ -177,15 +222,15 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
             disabled={filteredBikes.length === 0}
             sx={{ textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" }}
           >
-            Select All ({filteredBikes.length})
+            Select shown ({filteredBikes.length})
           </Button>
           <Button
             size="small"
             color="inherit"
-            onClick={handleClearAll}
+            onClick={hasFilters ? handleDeselectVisible : handleClearAll}
             sx={{ textTransform: "none", fontWeight: 600 }}
           >
-            Clear
+            {hasFilters ? "Deselect shown" : "Clear all"}
           </Button>
           <Chip
             label={`${selectionModel.length} selected`}
@@ -226,6 +271,7 @@ const Step3SelectBikes = ({ state, dispatch: wizardDispatch }) => {
             onRowSelectionModelChange={(newModel) =>
               handleSelectionChange(Array.from(newModel.ids))
             }
+            keepNonExistentRowsSelected
             pageSizeOptions={[25, 50, 100]}
             initialState={{
               pagination: { paginationModel: { pageSize: 25 } },

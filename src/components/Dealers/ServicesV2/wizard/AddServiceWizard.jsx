@@ -16,6 +16,7 @@ import {
   Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Step1SelectService from "./Step1SelectService";
 import Step2SelectCompanies from "./Step2SelectCompanies";
 import Step3SelectBikes from "./Step3SelectBikes";
@@ -85,6 +86,11 @@ export const wizardReducer = (state, action) => {
       return {
         ...state,
         pricing: { ...state.pricing, [action.bikeId]: action.price },
+      };
+    case "SET_PRICES":
+      return {
+        ...state,
+        pricing: { ...state.pricing, ...action.payload },
       };
     case "NEXT":
       return {
@@ -211,12 +217,17 @@ const AddServiceWizard = ({
         modelName: bike.model_name || "",
       }));
 
-      // Replace existing entries for this (serviceId, type) and append new ones
+      // Upsert only the selected bike mappings. Existing bikes for this service
+      // must stay intact; removing mappings is an explicit action in Edit.
+      const savedVariantIds = new Set(
+        newEntries.map((entry) => String(entry.variantId))
+      );
       const filtered = allPricing.filter(
         (p) =>
           !(
             String(p.serviceId) === String(state.selectedService._id) &&
-            p.type === serviceType
+            p.type === serviceType &&
+            savedVariantIds.has(String(p.variantId))
           )
       );
       const merged = [...filtered, ...newEntries];
@@ -247,14 +258,16 @@ const AddServiceWizard = ({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth="xl"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: 3,
-          minHeight: { xs: "unset", sm: 580 },
-          maxHeight: "92vh",
+          width: { xs: "calc(100% - 16px)", sm: "min(1440px, calc(100% - 32px))" },
+          height: { xs: "calc(100% - 16px)", sm: "94vh" },
+          maxHeight: { xs: "calc(100% - 16px)", sm: "94vh" },
           m: { xs: 1, sm: 2 },
+          overflow: "hidden",
         },
       }}
     >
@@ -304,7 +317,7 @@ const AddServiceWizard = ({
       <Divider />
 
       {/* ── Step Content ── */}
-      <DialogContent sx={{ py: 3, px: 3, overflowY: "auto" }}>
+      <DialogContent sx={{ py: 3, px: { xs: 2, sm: 3 }, overflowY: "auto" }}>
         {saveError && (
           <Alert
             severity="error"
@@ -325,13 +338,14 @@ const AddServiceWizard = ({
       <Divider />
 
       {/* ── Footer Actions ── */}
-      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+      <DialogActions sx={{ px: 3, py: 2, gap: 1, bgcolor: "background.paper" }}>
         <Button
           onClick={handleClose}
           color="inherit"
+          startIcon={state.activeStep === 0 ? <ArrowBackIcon /> : undefined}
           sx={{ mr: "auto", fontWeight: 600, textTransform: "none" }}
         >
-          Cancel
+          {state.activeStep === 0 ? "Back to services" : "Cancel"}
         </Button>
         {state.activeStep > 0 && (
           <Button

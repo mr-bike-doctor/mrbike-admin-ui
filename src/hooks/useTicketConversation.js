@@ -7,6 +7,7 @@ import {
 } from "../services/ticketService";
 import { roleToSenderType } from "../utils/ticketHelpers";
 import { useSupportUnread } from "../context/SupportUnreadContext";
+import { getSocket } from "../socket";
 
 // Re-implements the exact fetch/poll/reply/status behavior NewTicket.jsx has
 // today (5s polling while not Closed, replying while Open silently
@@ -70,6 +71,23 @@ const useTicketConversation = (ticketId) => {
     const interval = setInterval(fetchTicket, 5000);
     return () => clearInterval(interval);
   }, [ticketId, ticket?.status, fetchTicket]);
+
+  useEffect(() => {
+    if (!ticketId) return undefined;
+    const socket = getSocket();
+    const join = () => socket.emit("ticket:join", { ticketId });
+    const onMessage = (event = {}) => {
+      if (String(event.ticketId || "") === String(ticketId)) fetchTicket();
+    };
+    join();
+    socket.on("connect", join);
+    socket.on("ticket:message:new", onMessage);
+    return () => {
+      socket.emit("ticket:leave", { ticketId });
+      socket.off("connect", join);
+      socket.off("ticket:message:new", onMessage);
+    };
+  }, [ticketId, fetchTicket]);
 
   // Marks dealer/user messages read for the admin the moment the ticket is
   // opened, and again whenever a new message shows up while it's still open

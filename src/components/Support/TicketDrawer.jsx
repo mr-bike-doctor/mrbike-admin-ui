@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -97,6 +98,38 @@ const TicketDrawer = ({ open, ticketId, accentColor = "#2563eb", onClose, onTick
           <Typography sx={{ color: "#ef4444" }}>{error}</Typography>
         ) : !ticket ? null : (
           <>
+            {ticket.source === "booking_support" && (
+              <Box
+                sx={{
+                  mb: 2,
+                  p: 1.5,
+                  borderRadius: "12px",
+                  bgcolor: ticket.priority === "urgent" ? "#fff1f2" : "#eff6ff",
+                  border: `1px solid ${ticket.priority === "urgent" ? "#fecdd3" : "#bfdbfe"}`,
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.75, flexWrap: "wrap" }}>
+                  <Chip
+                    size="small"
+                    label={`${String(ticket.priority || "normal").toUpperCase()} PRIORITY`}
+                    color={ticket.priority === "urgent" ? "error" : "warning"}
+                    sx={{ fontWeight: 800, fontSize: "0.65rem" }}
+                  />
+                  <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 700 }}>
+                    Booking #{String(ticket.booking_id || "").slice(-6).toUpperCase()}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 800 }}>
+                  {ticket.issue_label || "Booking support issue"}
+                </Typography>
+                {ticket.booking_status_at_creation && (
+                  <Typography variant="caption" sx={{ color: "#64748b" }}>
+                    Booking status when raised: {ticket.booking_status_at_creation}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
               <Grid item xs={6}>
                 <Typography variant="caption" sx={{ color: "#94a3b8", display: "block" }}>Created</Typography>

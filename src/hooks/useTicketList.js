@@ -29,6 +29,12 @@ const useTicketList = () => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const refresh = () => load();
+    window.addEventListener("support:ticket:new", refresh);
+    return () => window.removeEventListener("support:ticket:new", refresh);
+  }, [load]);
+
   return { tickets, loading, error, refetch: load };
 };
 
