@@ -8,7 +8,6 @@ import {
   TableRow,
   Paper,
   Typography,
-  Button,
   Box,
   Chip,
   IconButton,
@@ -18,17 +17,8 @@ import {
   TableSortLabel,
   Menu,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Avatar,
-  Divider,
-  Grid,
   CircularProgress,
-  Alert,
   Tooltip,
-  LinearProgress,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -40,27 +30,10 @@ import {
   MoreVert as MoreVertIcon,
   VerifiedUser as VerifiedIcon,
   FiberManualRecord as DotIcon,
-  Business as BusinessIcon,
-  AccountBalance as BankIcon,
-  LocationOn as LocationIcon,
-  CloudDone as SuccessDocIcon,
-  AccessTime as TimelineIcon,
-  NoteAdd as NotesIcon,
-  Assignment as RequestDocIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import {
-  approveDealer,
-  rejectDealer,
-  verifyDealerDocument,
-  requestDealerDocuments,
-  updateDealerField,
-  IMAGE_BASE_URL,
-} from "../../api";
-import RequestDocumentsDialog, { DEFAULT_DOC_OPTIONS } from "./RequestDocumentsDialog";
-import DocumentRejectDialog from "./DocumentRejectDialog";
-import { getApiErrorMessage } from "../../utils/apiError";
-import { SERVICE_RADIUS_DEFAULT_KM } from "./businessSettings";
+import DealerReviewWizardDialog from "./DealerReviewWizardDialog";
+import { computeDealerProgress } from "../../utils/dealerProgressHelper";
 
 const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
   const navigate = useNavigate();
@@ -72,19 +45,6 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [confirmAction, setConfirmAction] = useState(null);
-  const [actionError, setActionError] = useState(null);
-  const [docVerification, setDocVerification] = useState({});
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [rejectDoc, setRejectDoc] = useState(null); // { key, label } | null
-  const [minWalletAmount, setMinWalletAmount] = useState("");
-  const [isSavingWallet, setIsSavingWallet] = useState(false);
-  const [walletSaveSuccess, setWalletSaveSuccess] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [notesSaving, setNotesSaving] = useState(false);
-  const [notesSaved, setNotesSaved] = useState(false);
 
   const handleRequestSort = (property) => {
     const isAsc = orderBy === property && order === "asc";
@@ -137,35 +97,11 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
     setPage(0);
   };
 
-  const getStatusConfig = (status, type) => {
-    if (type === "verification") {
-      return status
-        ? {
-            label: "Verified",
-            color: "success",
-            icon: <VerifiedIcon fontSize="small" />,
-          }
-        : {
-            label: "Unverified",
-            color: "warning",
-            icon: <PendingIcon fontSize="small" />,
-          };
-    }
-    if (type === "registration") {
-      const s = status?.toLowerCase() || "";
-      if (s === "pending")
-        return { color: "warning", icon: <DotIcon fontSize="small" /> };
-      if (s === "approved")
-        return { color: "success", icon: <CheckCircleIcon fontSize="small" /> };
-      return { color: "default", icon: <InfoIcon fontSize="small" /> };
-    }
-    return { color: "default" };
-  };
-
   const headers = [
     { id: "id", label: "#", sortable: false },
     { id: "shopName", label: "Shop Details", sortable: true },
     { id: "ownerName", label: "Owner Info", sortable: true },
+    { id: "progress", label: "Step Progress & Status", sortable: false },
     { id: "docs", label: "Documents Status", sortable: false },
     { id: "createdAt", label: "Requested On", sortable: true },
     { id: "actions", label: "Action", sortable: false },
@@ -180,125 +116,10 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
     setAnchorEl(null);
   };
 
-  const handleOpenReview = () => {
-    console.log('[ReviewModal] selectedDealer data:', JSON.stringify({ shopEmail: selectedDealer?.shopEmail, email: selectedDealer?.email, shopNumber: selectedDealer?.shopNumber, locality: selectedDealer?.locality, fullAddress: selectedDealer?.fullAddress, latitude: selectedDealer?.latitude, longitude: selectedDealer?.longitude }));
-    console.log('[ReviewModal] liveVerification object:', JSON.stringify(selectedDealer?.liveVerification));
-    console.log('[ReviewModal] live shopLivePhoto URL:', selectedDealer?.liveVerification?.shopLivePhoto);
-    console.log('[ReviewModal] live latitude:', selectedDealer?.liveVerification?.latitude, '| longitude:', selectedDealer?.liveVerification?.longitude);
+  const handleOpenReview = (dealerToReview) => {
+    if (dealerToReview) setSelectedDealer(dealerToReview);
     setReviewDialogOpen(true);
-    setDocVerification(selectedDealer?.documentVerification || {});
-    setMinWalletAmount(selectedDealer?.minWalletAmount ?? "");
-    setWalletSaveSuccess(false);
-    setRejectionReason("");
-    setReviewNotes(selectedDealer?.reviewNotes || "");
-    setNotesSaved(false);
     handleActionClose();
-  };
-
-  const handleSaveMinWallet = async () => {
-    if (!selectedDealer) return;
-    setIsSavingWallet(true);
-    setActionError(null);
-    try {
-      await updateDealerField(selectedDealer._id, { minWalletAmount });
-      setWalletSaveSuccess(true);
-      setTimeout(() => setWalletSaveSuccess(false), 3000);
-    } catch (error) {
-      setActionError(
-        error?.response?.data?.message || "Failed to save min wallet amount.",
-      );
-    } finally {
-      setIsSavingWallet(false);
-    }
-  };
-
-  const handleSaveNotes = async () => {
-    if (!selectedDealer) return;
-    setNotesSaving(true);
-    setActionError(null);
-    try {
-      await updateDealerField(selectedDealer._id, { reviewNotes });
-      setNotesSaved(true);
-      setTimeout(() => setNotesSaved(false), 3000);
-    } catch (error) {
-      setActionError(
-        error?.response?.data?.message || "Failed to save review notes.",
-      );
-    } finally {
-      setNotesSaving(false);
-    }
-  };
-
-  const getImageUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith("http")) return path;
-    const cleanPath = path.startsWith("/") ? path : `/${path}`;
-    return `${IMAGE_BASE_URL}${cleanPath}`;
-  };
-
-  const handleDocVerify = async (docType, status) => {
-    if (!selectedDealer) return;
-    try {
-      await verifyDealerDocument(selectedDealer._id, docType, status);
-      setDocVerification((prev) => ({ ...prev, [docType]: status }));
-    } catch (error) {
-      setActionError(
-        error?.response?.data?.message || "Failed to update document status.",
-      );
-    }
-  };
-
-  // Separate from handleDocVerify because the mandatory-reason dialog needs the
-  // rejection to fail loudly (its own inline error) instead of being swallowed
-  // into actionError like the direct Approve click.
-  const handleRejectConfirm = async (docType, reason) => {
-    if (!selectedDealer) return;
-    await verifyDealerDocument(selectedDealer._id, docType, "rejected", reason);
-    setDocVerification((prev) => ({ ...prev, [docType]: "rejected" }));
-  };
-
-  const handleRequestDocuments = async (docTypes, reason) => {
-    if (!selectedDealer) return;
-    await requestDealerDocuments(selectedDealer._id, docTypes, reason);
-    setDocVerification((prev) => {
-      const next = { ...prev };
-      docTypes.forEach((key) => {
-        next[key] = "requested";
-      });
-      return next;
-    });
-    onRefresh?.();
-  };
-
-  const allDocsVerified = (dv) =>
-    ["aadharFront", "aadharBack", "pan", "shop", "face", "passbook"].every(
-      (k) => dv[k] === "verified",
-    );
-
-  const executeConfirmedAction = async () => {
-    if (!selectedDealer || !confirmAction) return;
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      if (confirmAction === "approve") {
-        await approveDealer(selectedDealer._id);
-        setConfirmAction(null);
-        setReviewDialogOpen(false);
-        navigate("/dealers");
-      } else if (confirmAction === "reject") {
-        await rejectDealer(selectedDealer._id, rejectionReason.trim() || undefined);
-        setConfirmAction(null);
-        setReviewDialogOpen(false);
-        if (onRefresh) onRefresh();
-      }
-    } catch (error) {
-      console.error("Action failed:", error);
-      const msg = getApiErrorMessage(error, "Something went wrong. Please try again.");
-      setActionError(msg);
-      setConfirmAction(null);
-    } finally {
-      setActionLoading(false);
-    }
   };
 
   return (
@@ -398,22 +219,22 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
               </TableRow>
             ) : (
               currentData.map((dealer, index) => {
-                const isDocsComplete = dealer.isDoc;
-                const verifyStatus = getStatusConfig(
-                  dealer.isVerify,
-                  "verification",
-                );
-                const regStatus = getStatusConfig(
-                  dealer.registrationStatus,
-                  "registration",
-                );
+                const progress = computeDealerProgress(dealer);
 
                 return (
                   <TableRow key={dealer._id} hover>
                     <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            "&:hover": { color: "#2563eb" },
+                          }}
+                          onClick={() => handleOpenReview(dealer)}
+                        >
                           {dealer.shopName || "N/A"}
                         </Typography>
                         <Typography
@@ -485,6 +306,58 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
                         )}
                       </Box>
                     </TableCell>
+
+                    {/* Step Progress & Pending Highlight */}
+                    <TableCell sx={{ minWidth: 200 }}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                          <Chip
+                            size="small"
+                            label={`${progress.completedCount}/${progress.totalSteps} Steps`}
+                            color={
+                              progress.isApproved
+                                ? "success"
+                                : progress.hasActionRequired
+                                ? "error"
+                                : progress.canApprove
+                                ? "success"
+                                : "primary"
+                            }
+                            sx={{ fontWeight: 800, fontSize: "0.68rem", height: 20 }}
+                          />
+                          {progress.canApprove && (
+                            <Chip
+                              size="small"
+                              label="Ready to Approve"
+                              color="success"
+                              sx={{ fontWeight: 800, fontSize: "0.65rem", height: 20 }}
+                            />
+                          )}
+                        </Box>
+                        {progress.firstPendingStep && !progress.isApproved && (
+                          <Tooltip title={progress.firstPendingStep.blockingReason || progress.firstPendingStep.consequence}>
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`Pending: ${progress.firstPendingStep.shortTitle}`}
+                              color={progress.firstPendingStep.status === "action_required" ? "error" : "warning"}
+                              onClick={() => handleOpenReview(dealer)}
+                              sx={{
+                                fontWeight: 700,
+                                fontSize: "0.65rem",
+                                height: 22,
+                                cursor: "pointer",
+                                maxWidth: 190,
+                                "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", px: 0.75 },
+                                "&:hover": { bgcolor: "#f1f5f9" },
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+
+                    {/* Documents Status */}
                     <TableCell>
                       <Box
                         sx={{
@@ -494,30 +367,12 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
                         }}
                       >
                         {[
-                          {
-                            key: "aadharFront",
-                            label: "Aadhar Front",
-                          },
-                          {
-                            key: "aadharBack",
-                            label: "Aadhar Back",
-                          },
-                          {
-                            key: "pan",
-                            label: "PAN",
-                          },
-                          {
-                            key: "shop",
-                            label: "Shop",
-                          },
-                          {
-                            key: "face",
-                            label: "Face",
-                          },
-                          {
-                            key: "passbook",
-                            label: "Passbook",
-                          },
+                          { key: "aadharFront", label: "Aadhar Front" },
+                          { key: "aadharBack", label: "Aadhar Back" },
+                          { key: "pan", label: "PAN" },
+                          { key: "shop", label: "Shop" },
+                          { key: "face", label: "Face" },
+                          { key: "passbook", label: "Passbook" },
                         ].map((doc) => {
                           const status =
                             dealer.documentVerification?.[doc.key] || "none";
@@ -655,1180 +510,25 @@ const DealerVerficationTable = ({ datas, loading, onRefresh }) => {
         open={Boolean(anchorEl)}
         onClose={handleActionClose}
       >
-        <MenuItem onClick={handleOpenReview}>
+        <MenuItem onClick={() => handleOpenReview(selectedDealer)}>
           <VisibilityIcon
             fontSize="small"
             sx={{ mr: 1, color: "primary.main" }}
           />{" "}
-          Review Profile
+          Review Profile (Step-by-Step)
         </MenuItem>
       </Menu>
 
-      {/* Dealer Review Dialog */}
-      <Dialog
+      {/* Step-by-Step Dealer Review & Approval Wizard */}
+      <DealerReviewWizardDialog
         open={reviewDialogOpen}
-        onClose={() => {
-          if (!actionLoading) {
-            setReviewDialogOpen(false);
-            setActionError(null);
-          }
+        onClose={() => setReviewDialogOpen(false)}
+        dealer={selectedDealer}
+        onRefresh={onRefresh}
+        onApproved={() => {
+          if (onRefresh) onRefresh();
+          navigate("/dealers");
         }}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            maxHeight: "90vh",
-            m: { xs: 1, sm: 2, md: 3 },
-            width: { xs: "calc(100% - 16px)", sm: "calc(100% - 32px)", md: "calc(100% - 48px)" },
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            bgcolor: "#f8faff",
-            flexWrap: "wrap",
-            gap: 1,
-            py: { xs: 1.5, sm: 2 },
-            px: { xs: 2, sm: 3 },
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: "primary.main" }}>
-              {selectedDealer?.shopName?.[0]}
-            </Avatar>
-            <Box>
-              <Typography variant="h6">{selectedDealer?.shopName}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Dealer ID: {selectedDealer?._id}
-              </Typography>
-            </Box>
-          </Box>
-          <Chip
-            label={selectedDealer?.registrationStatus || "Pending"}
-            color={
-              getStatusConfig(
-                selectedDealer?.registrationStatus,
-                "registration",
-              ).color
-            }
-            size="small"
-          />
-        </DialogTitle>
-
-        {/* Inline error alert */}
-        {actionError && (
-          <Alert
-            severity="error"
-            onClose={() => setActionError(null)}
-            sx={{ mx: 3, mt: 2, borderRadius: 2 }}
-          >
-            {actionError}
-          </Alert>
-        )}
-        <DialogContent dividers sx={{ p: { xs: 2, sm: 3, md: 4 }, overflowY: "auto" }}>
-          {selectedDealer && (
-            <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
-              {/* LEFT COLUMN */}
-              <Grid item xs={12} md={6}>
-                {/* Business Profile */}
-                <Box sx={{ mb: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <BusinessIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "bold", color: "primary.main" }}
-                    >
-                      BUSINESS PROFILE
-                    </Typography>
-                  </Box>
-                  {[
-                    { label: "Shop Name", value: selectedDealer.shopName },
-                    { label: "Owner Name", value: selectedDealer.ownerName },
-                    { label: "Shop Email", value: selectedDealer.shopEmail || selectedDealer.email },
-                    { label: "Phone Number", value: selectedDealer.phone },
-                    {
-                      label: "Alternative Number",
-                      value: selectedDealer.alternatePhone,
-                    },
-                    {
-                      label: "Commission",
-                      value:
-                        selectedDealer.commission != null
-                          ? `${selectedDealer.commission}%`
-                          : null,
-                    },
-                    {
-                      label: "Tax",
-                      value:
-                        selectedDealer.tax != null
-                          ? `${selectedDealer.tax}%`
-                          : null,
-                    },
-                    {
-                      label: "Pickup charges",
-                      value:
-                        selectedDealer.pickupCharges != null
-                          ? `₹${selectedDealer.pickupCharges}`
-                          : null,
-                    },
-                    {
-                      label: "Service radius",
-                      value: `${selectedDealer.serviceRadiusKm ?? SERVICE_RADIUS_DEFAULT_KM} km`,
-                    },
-                    {
-                      label: "Shop Pincode",
-                      value: selectedDealer.shopPincode,
-                    },
-                  ].map((item) => (
-                    <Box key={item.label} sx={{ display: "flex", mb: 0.75 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: "bold",
-                          minWidth: 110,
-                          color: "text.secondary",
-                        }}
-                      >
-                        {item.label}:
-                      </Typography>
-                      <Typography variant="caption">
-                        {item.value || "N/A"}
-                      </Typography>
-                    </Box>
-                  ))}
-
-                  {/* Min Wallet Amount — editable */}
-                  <Box
-                    sx={{
-                      mt: 1.5,
-                      pt: 1.5,
-                      borderTop: "1px dashed",
-                      borderColor: "divider",
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: "bold",
-                        color: "text.secondary",
-                        display: "block",
-                        mb: 1,
-                      }}
-                    >
-                      MIN WALLET AMOUNT
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={minWalletAmount}
-                        onChange={(e) => setMinWalletAmount(e.target.value)}
-                        placeholder="e.g. 500"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Typography
-                                variant="caption"
-                                sx={{ fontWeight: "bold" }}
-                              >
-                                ₹
-                              </Typography>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{ width: 150 }}
-                        disabled={isSavingWallet}
-                      />
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={handleSaveMinWallet}
-                        disabled={isSavingWallet || minWalletAmount === ""}
-                        startIcon={
-                          isSavingWallet ? (
-                            <CircularProgress size={14} color="inherit" />
-                          ) : null
-                        }
-                        sx={{
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: "0.75rem",
-                        }}
-                      >
-                        {isSavingWallet ? "Saving…" : "Save"}
-                      </Button>
-                    </Box>
-                    {walletSaveSuccess && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: "success.main",
-                          fontWeight: 700,
-                          display: "block",
-                          mt: 0.75,
-                        }}
-                      >
-                        ✓ Min wallet amount saved
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-
-                {/* Address */}
-                <Box sx={{ mb: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <LocationIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "bold", color: "primary.main" }}
-                    >
-                      ADDRESS & LOCATION
-                    </Typography>
-                  </Box>
-                  {[
-                    {
-                      label: "Shop No.",
-                      value: selectedDealer.shopNumber,
-                    },
-                    {
-                      label: "Locality",
-                      value: selectedDealer.locality,
-                    },
-                    {
-                      label: "City",
-                      value: selectedDealer.city,
-                    },
-                    {
-                      label: "State",
-                      value: selectedDealer.state,
-                    },
-                    {
-                      label: "Full Address",
-                      value: selectedDealer.fullAddress,
-                    },
-                    {
-                      label: "GPS",
-                      value: selectedDealer.latitude
-                        ? `${selectedDealer.latitude}, ${selectedDealer.longitude}`
-                        : null,
-                    },
-                  ].map((item) => (
-                    <Box key={item.label} sx={{ display: "flex", mb: 0.75 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: "bold",
-                          minWidth: 110,
-                          color: "text.secondary",
-                        }}
-                      >
-                        {item.label}:
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{ wordBreak: "break-word" }}
-                      >
-                        {item.value || "N/A"}
-                      </Typography>
-                    </Box>
-                  ))}
-                  {selectedDealer.latitude && (
-                    <Button
-                      variant="text"
-                      size="small"
-                      startIcon={<LocationIcon />}
-                      href={`https://www.google.com/maps/search/?api=1&query=${selectedDealer.latitude},${selectedDealer.longitude}`}
-                      target="_blank"
-                      sx={{ textTransform: "none", mt: 0.5 }}
-                    >
-                      View on Google Maps
-                    </Button>
-                  )}
-                </Box>
-
-                {/* Live Shop Verification */}
-                {selectedDealer.liveVerification && (
-                  <Box sx={{ mb: 3 }}>
-                    <Box
-                      sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}
-                    >
-                      <VerifiedIcon color="primary" fontSize="small" />
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: "bold", color: "primary.main" }}
-                      >
-                        LIVE SHOP VERIFICATION
-                      </Typography>
-                    </Box>
-
-                    {selectedDealer.liveVerification.shopLivePhoto ? (
-                      <Box
-                        component="img"
-                        src={getImageUrl(selectedDealer.liveVerification.shopLivePhoto)}
-                        alt="Live Shop Photo"
-                        onClick={() =>
-                          window.open(
-                            getImageUrl(selectedDealer.liveVerification.shopLivePhoto),
-                            "_blank",
-                          )
-                        }
-                        sx={{
-                          width: "100%",
-                          height: 160,
-                          objectFit: "cover",
-                          borderRadius: 1,
-                          cursor: "pointer",
-                          mb: 1.5,
-                          border: "1px solid #e2e8f0",
-                          display: "block",
-                          "&:hover": { opacity: 0.85 },
-                        }}
-                      />
-                    ) : (
-                      <Box
-                        sx={{
-                          height: 60,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          border: "1px dashed #e2e8f0",
-                          borderRadius: 1,
-                          mb: 1.5,
-                        }}
-                      >
-                        <Typography variant="caption" color="text.secondary">
-                          Live photo not uploaded
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {[
-                      {
-                        label: "Latitude",
-                        value:
-                          selectedDealer.liveVerification.latitude != null
-                            ? String(selectedDealer.liveVerification.latitude)
-                            : null,
-                      },
-                      {
-                        label: "Longitude",
-                        value:
-                          selectedDealer.liveVerification.longitude != null
-                            ? String(selectedDealer.liveVerification.longitude)
-                            : null,
-                      },
-                      {
-                        label: "Verified At",
-                        value:
-                          selectedDealer.liveVerification.timestamp ||
-                          selectedDealer.liveVerification.capturedAt
-                            ? new Date(
-                                selectedDealer.liveVerification.timestamp ||
-                                  selectedDealer.liveVerification.capturedAt,
-                              ).toLocaleString()
-                            : null,
-                      },
-                    ].map((item) => (
-                      <Box key={item.label} sx={{ display: "flex", mb: 0.75 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontWeight: "bold",
-                            minWidth: 110,
-                            color: "text.secondary",
-                          }}
-                        >
-                          {item.label}:
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{ wordBreak: "break-word" }}
-                        >
-                          {item.value || "N/A"}
-                        </Typography>
-                      </Box>
-                    ))}
-
-                    {selectedDealer.liveVerification.latitude != null && (
-                      <Button
-                        variant="text"
-                        size="small"
-                        startIcon={<LocationIcon />}
-                        href={`https://www.google.com/maps?q=${selectedDealer.liveVerification.latitude},${selectedDealer.liveVerification.longitude}`}
-                        target="_blank"
-                        sx={{ textTransform: "none", mt: 0.5 }}
-                      >
-                        View on Google Maps
-                      </Button>
-                    )}
-                  </Box>
-                )}
-
-                {/* Banking */}
-                <Box sx={{ mb: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <BankIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "bold", color: "primary.main" }}
-                    >
-                      BANKING DETAILS
-                    </Typography>
-                  </Box>
-                  {[
-                    {
-                      label: "Account Holder",
-                      value: selectedDealer.bankDetails?.accountHolderName,
-                    },
-                    {
-                      label: "Bank Name",
-                      value: selectedDealer.bankDetails?.bankName,
-                    },
-                    {
-                      label: "Account No.",
-                      value: selectedDealer.bankDetails?.accountNumber,
-                    },
-                    {
-                      label: "IFSC Code",
-                      value: selectedDealer.bankDetails?.ifscCode,
-                    },
-                  ].map((item) => (
-                    <Box key={item.label} sx={{ display: "flex", mb: 0.75 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: "bold",
-                          minWidth: 110,
-                          color: "text.secondary",
-                        }}
-                      >
-                        {item.label}:
-                      </Typography>
-                      <Typography variant="caption">
-                        {item.value || "N/A"}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-
-                {/* ID Numbers */}
-                <Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <VisibilityIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "bold", color: "primary.main" }}
-                    >
-                      IDENTITY NUMBERS
-                    </Typography>
-                  </Box>
-                  {[
-                    { label: "Aadhar No.", value: selectedDealer.aadharCardNo },
-                    { label: "PAN No.", value: selectedDealer.panCardNo },
-                  ].map((item) => (
-                    <Box key={item.label} sx={{ display: "flex", mb: 0.75 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: "bold",
-                          minWidth: 110,
-                          color: "text.secondary",
-                        }}
-                      >
-                        {item.label}:
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{ fontFamily: "monospace", letterSpacing: 1 }}
-                      >
-                        {item.value || "N/A"}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-
-                {/* Approval Timeline */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-                    <TimelineIcon color="primary" fontSize="small" />
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", color: "primary.main" }}>
-                      REVIEW TIMELINE
-                    </Typography>
-                  </Box>
-                  {[
-                    {
-                      label: "Application Submitted",
-                      date: selectedDealer.createdAt,
-                      done: true,
-                      color: "#3b82f6",
-                    },
-                    {
-                      label: "Under Review",
-                      date: null,
-                      done: true,
-                      color: "#f59e0b",
-                    },
-                    {
-                      label:
-                        selectedDealer.registrationStatus?.toLowerCase() === "rejected"
-                          ? "Rejected"
-                          : selectedDealer.registrationStatus?.toLowerCase() === "approved"
-                          ? "Approved"
-                          : "Decision Pending",
-                      date:
-                        selectedDealer.registrationStatus?.toLowerCase() !== "pending"
-                          ? selectedDealer.updatedAt
-                          : null,
-                      done: selectedDealer.registrationStatus?.toLowerCase() !== "pending",
-                      color:
-                        selectedDealer.registrationStatus?.toLowerCase() === "rejected"
-                          ? "#ef4444"
-                          : selectedDealer.registrationStatus?.toLowerCase() === "approved"
-                          ? "#22c55e"
-                          : "#94a3b8",
-                    },
-                  ].map((step, idx, arr) => (
-                    <Box key={idx} sx={{ display: "flex", gap: 1.5 }}>
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: step.done ? step.color : "#e2e8f0",
-                            border: `2px solid ${step.done ? step.color : "#cbd5e1"}`,
-                            flexShrink: 0,
-                            mt: 0.3,
-                          }}
-                        />
-                        {idx < arr.length - 1 && (
-                          <Box sx={{ width: 2, flex: 1, bgcolor: "#e2e8f0", my: 0.25, minHeight: 16 }} />
-                        )}
-                      </Box>
-                      <Box sx={{ pb: idx < arr.length - 1 ? 1 : 0 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, display: "block", lineHeight: 1.2 }}>
-                          {step.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {step.date
-                            ? new Date(step.date).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "—"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-
-                {/* Rejection Reason Display */}
-                {selectedDealer.rejectionReason && (
-                  <Alert severity="error" sx={{ mb: 2, py: 0.5, fontSize: "0.75rem" }}>
-                    <strong>Rejection Reason:</strong> {selectedDealer.rejectionReason}
-                  </Alert>
-                )}
-
-                {/* Review Notes */}
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-                    <NotesIcon color="primary" fontSize="small" />
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", color: "primary.main" }}>
-                      REVIEW NOTES
-                    </Typography>
-                  </Box>
-                  <TextField
-                    multiline
-                    rows={3}
-                    fullWidth
-                    size="small"
-                    placeholder="Add internal review notes (not visible to dealer)..."
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    disabled={notesSaving}
-                    sx={{ mb: 1 }}
-                  />
-                  <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
-                    {notesSaved && (
-                      <Typography variant="caption" sx={{ color: "success.main", fontWeight: 700 }}>
-                        ✓ Notes saved
-                      </Typography>
-                    )}
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={handleSaveNotes}
-                      disabled={notesSaving || !reviewNotes.trim()}
-                      startIcon={notesSaving ? <CircularProgress size={14} color="inherit" /> : null}
-                      sx={{ textTransform: "none", fontWeight: 700, fontSize: "0.75rem" }}
-                    >
-                      {notesSaving ? "Saving…" : "Save Notes"}
-                    </Button>
-                  </Box>
-                </Box>
-              </Grid>
-
-              {/* RIGHT COLUMN: Documents */}
-              <Grid item xs={12} md={6}>
-                {/* Header + progress summary */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    mb: 2,
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <VisibilityIcon color="primary" fontSize="small" />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "bold", color: "primary.main" }}
-                    >
-                      DOCUMENT REVIEW
-                    </Typography>
-                  </Box>
-                  <Chip
-                    size="small"
-                    label={`${["aadharFront", "aadharBack", "pan", "shop", "face", "passbook"].filter((k) => docVerification[k] === "verified").length} / 6 Approved`}
-                    color={
-                      allDocsVerified(docVerification) ? "success" : "warning"
-                    }
-                    icon={
-                      allDocsVerified(docVerification) ? (
-                        <CheckCircleIcon fontSize="small" />
-                      ) : (
-                        <PendingIcon fontSize="small" />
-                      )
-                    }
-                    sx={{ fontWeight: 800, fontSize: "0.7rem" }}
-                  />
-                </Box>
-
-                {/* Instruction banner */}
-                {Object.values(docVerification).some(
-                  (v) => v === "rejected",
-                ) ? (
-                  <Alert
-                    severity="error"
-                    sx={{ mb: 2, py: 0.5, fontSize: "0.75rem" }}
-                  >
-                    <strong>Needs Attention:</strong> One or more documents have
-                    been rejected. The dealer will need to re-upload these
-                    before the profile can be fully approved.
-                  </Alert>
-                ) : !allDocsVerified(docVerification) ? (
-                  <Alert
-                    severity="info"
-                    sx={{ mb: 2, py: 0.5, fontSize: "0.75rem" }}
-                  >
-                    Review each document below. Click the image to enlarge.
-                    Approve or Reject each one before you can approve the
-                    dealer.
-                  </Alert>
-                ) : (
-                  <Alert
-                    severity="success"
-                    sx={{ mb: 2, py: 0.5, fontSize: "0.75rem" }}
-                  >
-                    All documents verified! You can now approve this dealer.
-                  </Alert>
-                )}
-
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {[
-                    {
-                      label: "Aadhar Card (Front)",
-                      path: selectedDealer.documents?.aadharFront,
-                      docKey: "aadharFront",
-                    },
-                    {
-                      label: "Aadhar Card (Back)",
-                      path: selectedDealer.documents?.aadharBack,
-                      docKey: "aadharBack",
-                    },
-                    {
-                      label: "PAN Card",
-                      path: selectedDealer.documents?.panCardFront,
-                      docKey: "pan",
-                    },
-                    {
-                      label: "Shop Certificate",
-                      path: selectedDealer.documents?.shopCertificate,
-                      docKey: "shop",
-                    },
-                    {
-                      label: "Face / Selfie",
-                      path: selectedDealer.documents?.faceVerificationImage,
-                      docKey: "face",
-                    },
-                    {
-                      label: "Passbook / Cheque",
-                      path: selectedDealer.bankDetails?.passbookImage,
-                      docKey: "passbook",
-                    },
-                    ...(selectedDealer.shopImages &&
-                    selectedDealer.shopImages.length > 0
-                      ? selectedDealer.shopImages.map((img, idx) => ({
-                          label: `Shop Photo ${idx + 1}`,
-                          path: img,
-                          docKey: null,
-                        }))
-                      : [
-                          {
-                            label: "Shop Photo",
-                            path: null,
-                            docKey: null,
-                          },
-                        ]),
-                  ].map((doc) => {
-                    const status = doc.docKey
-                      ? docVerification[doc.docKey]
-                      : null;
-                    const borderColor =
-                      status === "verified"
-                        ? "#22c55e"
-                        : status === "rejected"
-                          ? "#ef4444"
-                          : status === "pending"
-                            ? "#f59e0b"
-                            : "#e2e8f0";
-                    const bgColor =
-                      status === "verified"
-                        ? "#f0fdf4"
-                        : status === "rejected"
-                          ? "#fef2f2"
-                          : status === "pending"
-                            ? "#fffbeb"
-                            : "#fcfcfc";
-                    return (
-                      <Paper
-                        key={doc.label}
-                        elevation={0}
-                        sx={{
-                          border: "1.5px solid",
-                          borderColor,
-                          borderRadius: 2,
-                          overflow: "hidden",
-                          bgcolor: bgColor,
-                          transition: "border-color 0.2s, background 0.2s",
-                        }}
-                      >
-                        {/* Doc header row */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            px: 1.5,
-                            py: 1,
-                            borderBottom: "1px solid",
-                            borderColor: "divider",
-                            bgcolor: "rgba(0,0,0,0.02)",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            {doc.docKey && status === "verified" && (
-                              <CheckCircleIcon
-                                sx={{ fontSize: 15, color: "#22c55e" }}
-                              />
-                            )}
-                            {doc.docKey && status === "rejected" && (
-                              <CancelIcon
-                                sx={{ fontSize: 15, color: "#ef4444" }}
-                              />
-                            )}
-                            {doc.docKey &&
-                              (status === "pending" || status === "none") && (
-                                <PendingIcon
-                                  sx={{ fontSize: 15, color: "#f59e0b" }}
-                                />
-                              )}
-                            <Typography
-                              variant="caption"
-                              sx={{ fontWeight: 700 }}
-                            >
-                              {doc.label}
-                            </Typography>
-                          </Box>
-                          {doc.docKey && (
-                            <Chip
-                              size="small"
-                              label={
-                                status === "verified"
-                                  ? "Approved"
-                                  : status === "rejected"
-                                    ? "Rejected"
-                                    : "Pending Review"
-                              }
-                              color={
-                                status === "verified"
-                                  ? "success"
-                                  : status === "rejected"
-                                    ? "error"
-                                    : "warning"
-                              }
-                              variant={
-                                status === "verified" || status === "rejected"
-                                  ? "filled"
-                                  : "outlined"
-                              }
-                              sx={{
-                                fontSize: "0.6rem",
-                                fontWeight: 800,
-                                height: 20,
-                              }}
-                            />
-                          )}
-                        </Box>
-
-                        {/* Image */}
-                        {doc.path ? (
-                          <Box
-                            component="img"
-                            src={getImageUrl(doc.path)}
-                            alt={doc.label}
-                            onClick={() =>
-                              window.open(getImageUrl(doc.path), "_blank")
-                            }
-                            sx={{
-                              width: "100%",
-                              height: 120,
-                              objectFit: "contain",
-                              cursor: "pointer",
-                              display: "block",
-                              "&:hover": { opacity: 0.85 },
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              height: 60,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              Not uploaded
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {/* Approve / Reject buttons */}
-                        {doc.docKey && doc.path && (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              borderTop: "1px solid",
-                              borderColor: "divider",
-                            }}
-                          >
-                            <Button
-                              fullWidth
-                              size="small"
-                              variant={
-                                status === "verified" ? "contained" : "text"
-                              }
-                              color="success"
-                              startIcon={<CheckCircleIcon />}
-                              onClick={() =>
-                                handleDocVerify(doc.docKey, "verified")
-                              }
-                              sx={{
-                                borderRadius: 0,
-                                py: 0.75,
-                                fontWeight: 800,
-                                fontSize: "0.72rem",
-                              }}
-                            >
-                              Approve
-                            </Button>
-                            <Divider orientation="vertical" flexItem />
-                            <Button
-                              fullWidth
-                              size="small"
-                              variant={
-                                status === "rejected" ? "contained" : "text"
-                              }
-                              color="error"
-                              startIcon={<CancelIcon />}
-                              onClick={() =>
-                                setRejectDoc({ key: doc.docKey, label: doc.label })
-                              }
-                              sx={{
-                                borderRadius: 0,
-                                py: 0.75,
-                                fontWeight: 800,
-                                fontSize: "0.72rem",
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </Box>
-                        )}
-                      </Paper>
-                    );
-                  })}
-                </Box>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-
-        <DialogActions
-          sx={{
-            p: 0,
-            flexDirection: "column",
-            alignItems: "stretch",
-            bgcolor: "#f8faff",
-          }}
-        >
-          {/* Inline confirmation strip — shown when an action is pending */}
-          {confirmAction && (
-            <Box
-              sx={{
-                px: { xs: 2, sm: 3 },
-                py: 2,
-                bgcolor: confirmAction === "approve" ? "#e8f5e9" : "#fdecea",
-                borderTop: "1px solid",
-                borderColor:
-                  confirmAction === "approve" ? "#a5d6a7" : "#ef9a9a",
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 500,
-                  color: confirmAction === "approve" ? "#2e7d32" : "#c62828",
-                  mb: confirmAction === "reject" ? 1.5 : 0,
-                }}
-              >
-                {confirmAction === "approve"
-                  ? `Confirm approval of "${selectedDealer?.shopName}"?`
-                  : `Reject "${selectedDealer?.shopName}"? Provide a reason below (optional).`}
-              </Typography>
-              {confirmAction === "reject" && (
-                <TextField
-                  multiline
-                  rows={2}
-                  fullWidth
-                  size="small"
-                  placeholder="Enter rejection reason (e.g. incomplete documents, invalid PAN)..."
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  disabled={actionLoading}
-                  sx={{ mb: 1.5, bgcolor: "white", borderRadius: 1 }}
-                />
-              )}
-              <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="inherit"
-                  onClick={() => setConfirmAction(null)}
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color={confirmAction === "approve" ? "success" : "error"}
-                  onClick={executeConfirmedAction}
-                  disabled={actionLoading}
-                  startIcon={
-                    actionLoading ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : null
-                  }
-                >
-                  {confirmAction === "approve" ? "Yes, Approve" : "Yes, Reject"}
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {/* Main action buttons */}
-          <Box
-            sx={{
-              display: "flex",
-              p: { xs: 1.5, sm: 2 },
-              gap: 1,
-              justifyContent: "space-between",
-              alignItems: { xs: "flex-start", sm: "center" },
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Left: pending checklist hint */}
-            {!allDocsVerified(docVerification) && (
-              <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-                {[
-                  { key: "aadharFront", label: "Aadhar Front" },
-                  { key: "aadharBack", label: "Aadhar Back" },
-                  { key: "pan", label: "PAN" },
-                  { key: "shop", label: "Shop Cert" },
-                  { key: "face", label: "Face/ID" },
-                ].map(({ key, label }) => (
-                  <Chip
-                    key={key}
-                    size="small"
-                    label={label}
-                    icon={
-                      docVerification[key] === "verified" ? (
-                        <CheckCircleIcon fontSize="small" />
-                      ) : docVerification[key] === "rejected" ? (
-                        <CancelIcon fontSize="small" />
-                      ) : (
-                        <PendingIcon fontSize="small" />
-                      )
-                    }
-                    color={
-                      docVerification[key] === "verified"
-                        ? "success"
-                        : docVerification[key] === "rejected"
-                          ? "error"
-                          : "default"
-                    }
-                    variant={
-                      docVerification[key] === "verified" ||
-                      docVerification[key] === "rejected"
-                        ? "filled"
-                        : "outlined"
-                    }
-                    sx={{ fontSize: "0.65rem", fontWeight: 700 }}
-                  />
-                ))}
-              </Box>
-            )}
-            {allDocsVerified(docVerification) && (
-              <Typography
-                variant="caption"
-                sx={{ color: "success.main", fontWeight: 700 }}
-              >
-                ✓ All documents reviewed — ready to approve
-              </Typography>
-            )}
-
-            {/* Right: action buttons */}
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <Button
-                onClick={() => {
-                  setReviewDialogOpen(false);
-                  setConfirmAction(null);
-                }}
-                variant="outlined"
-                color="inherit"
-                disabled={actionLoading}
-              >
-                Close
-              </Button>
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={<RequestDocIcon />}
-                onClick={() => setRequestDialogOpen(true)}
-                disabled={actionLoading}
-                sx={{ textTransform: "none", fontWeight: 700 }}
-              >
-                Request Docs
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<CancelIcon />}
-                onClick={() => setConfirmAction("reject")}
-                disabled={actionLoading || confirmAction === "reject"}
-              >
-                Reject Application
-              </Button>
-              <Tooltip
-                title={
-                  selectedDealer?.registrationStatus?.toLowerCase() === "approved"
-                    ? "Dealer is already approved"
-                    : !allDocsVerified(docVerification)
-                    ? "Review and approve all documents first"
-                    : !(selectedDealer?.minWalletAmount > 0 || walletSaveSuccess)
-                    ? "Set and save a Min Wallet Amount before approving"
-                    : ""
-                }
-              >
-                <span>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<CheckCircleIcon />}
-                    onClick={() => setConfirmAction("approve")}
-                    disabled={
-                      actionLoading ||
-                      confirmAction === "approve" ||
-                      selectedDealer?.registrationStatus?.toLowerCase() === "approved"
-                    }
-                  >
-                    {selectedDealer?.registrationStatus?.toLowerCase() === "approved"
-                      ? "Already Approved"
-                      : "Approve Dealer"}
-                  </Button>
-                </span>
-              </Tooltip>
-            </Box>
-          </Box>
-        </DialogActions>
-      </Dialog>
-
-      <RequestDocumentsDialog
-        open={requestDialogOpen}
-        onClose={() => setRequestDialogOpen(false)}
-        onSubmit={handleRequestDocuments}
-        docOptions={DEFAULT_DOC_OPTIONS}
-      />
-
-      <DocumentRejectDialog
-        open={!!rejectDoc}
-        docLabel={rejectDoc?.label}
-        onClose={() => setRejectDoc(null)}
-        onConfirm={(reason) => handleRejectConfirm(rejectDoc.key, reason)}
       />
     </Box>
   );

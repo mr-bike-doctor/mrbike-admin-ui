@@ -8,8 +8,6 @@ import {
   Paper, 
   Grid, 
   Avatar, 
-  CircularProgress,
-  Divider,
   Breadcrumbs,
   Link as MuiLink
 } from "@mui/material";
@@ -20,6 +18,8 @@ import {
   NavigateNext
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+
+import { computeDealerProgress } from "../../utils/dealerProgressHelper";
 
 const DealerVerify = () => {
   const navigate = useNavigate();
@@ -50,14 +50,15 @@ const DealerVerify = () => {
   };
 
   const queueStats = useMemo(() => {
-    const pending = data.filter(d => d.registrationStatus?.toLowerCase() === 'pending').length;
-    const missingDocs = data.filter(d => !d.isDoc).length;
-    const unverified = data.filter(d => !d.isVerify).length;
-    
+    const evaluated = (data || []).map((d) => computeDealerProgress(d));
+    const readyToApprove = evaluated.filter((p) => p.canApprove).length;
+    const actionRequired = evaluated.filter((p) => p.hasActionRequired).length;
+    const pendingReview = evaluated.filter((p) => !p.canApprove && !p.hasActionRequired).length;
+
     return [
-      { label: "Pending Approval", value: pending, icon: <PendingActions />, color: "#f59e0b" },
-      { label: "Missing Documents", value: missingDocs, icon: <AssignmentLate />, color: "#ef4444" },
-      { label: "Awaiting Verification", value: unverified, icon: <HowToReg />, color: "#3b82f6" },
+      { label: "Ready for Approval", value: readyToApprove, icon: <HowToReg />, color: "#10b981" },
+      { label: "Action Required / Rejected", value: actionRequired, icon: <AssignmentLate />, color: "#ef4444" },
+      { label: "Under Review / Incomplete", value: pendingReview, icon: <PendingActions />, color: "#f59e0b" },
     ];
   }, [data]);
 

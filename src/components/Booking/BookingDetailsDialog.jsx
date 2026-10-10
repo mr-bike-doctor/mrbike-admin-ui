@@ -111,9 +111,21 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
       return;
     }
 
+    const reasonResult = await Swal.fire({
+      title: "Why are you changing this charge?",
+      input: "textarea",
+      inputPlaceholder: "Record the operational reason for this change",
+      inputAttributes: { "aria-label": "Reason for towing charge change" },
+      inputValidator: (value) => value?.trim() ? undefined : "A reason is required.",
+      showCancelButton: true,
+      confirmButtonText: "Continue",
+      cancelButtonText: "Cancel",
+    });
+    if (!reasonResult.isConfirmed) return;
+
     setSavingTowingCharge(true);
     try {
-      const res = await updateBookingTowingCharge(booking._id, amount);
+      const res = await updateBookingTowingCharge(booking._id, amount, reasonResult.value.trim());
       if (res?.success) {
         setPricingPatch(res.data || null);
         await onRefresh?.();
@@ -621,56 +633,6 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
                   sx={{ p: 3.5, borderRadius: 4, bgcolor: "#f1f5f9", border: "1px solid #e2e8f0" }}
                 >
                   <Grid container spacing={4} alignItems="center">
-                    <Grid item xs={6} sm={3}>
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "#64748b", fontWeight: 700, mb: 1, display: "block", textTransform: "uppercase", fontSize: "0.65rem" }}
-                      >
-                        PICKUP OTP
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography
-                          variant="h5"
-                          sx={{
-                            fontWeight: 900,
-                            color: "primary.main",
-                            letterSpacing: 2,
-                            fontFamily: "Monospace",
-                            bgcolor: "primary.soft",
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 2,
-                            display: "inline-block",
-                          }}
-                        >
-                          {booking.pickupOtp || "----"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "#64748b", fontWeight: 700, mb: 1, display: "block", textTransform: "uppercase", fontSize: "0.65rem" }}
-                      >
-                        DELIVERY OTP
-                      </Typography>
-                      <Typography
-                        variant="h5"
-                        sx={{
-                          fontWeight: 900,
-                          color: "success.main",
-                          letterSpacing: 2,
-                          fontFamily: "Monospace",
-                          bgcolor: "success.soft",
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: 2,
-                          display: "inline-block",
-                        }}
-                      >
-                        {booking.deliveryOtp || "----"}
-                      </Typography>
-                    </Grid>
                     <Grid item xs={6} sm={3}>
                       <Typography
                         variant="caption"

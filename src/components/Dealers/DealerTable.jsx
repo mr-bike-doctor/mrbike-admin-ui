@@ -53,6 +53,8 @@ import {
   DeleteForever as DeleteForeverIcon,
 } from "@mui/icons-material";
 
+import { computeDealerProgress } from "../../utils/dealerProgressHelper";
+
 // Tab ids map 1:1 to the `stage` query of GET /dealer/admin/dealers.
 const FILTER_TABS = [
   { id: "all",            label: "All" },
@@ -72,6 +74,7 @@ const TABLE_HEADERS = [
   { id: "ownerName", label: "Owner",        sortable: true },
   { id: "contact",   label: "Contact Info", sortable: false },
   { id: "city",      label: "Location",     sortable: true },
+  { id: "progress",  label: "Progress",     sortable: false },
   { id: "services",  label: "Services",     sortable: false },
   { id: "status",    label: "Status",       sortable: false },
   { id: "cancelRate",label: "Perf.",        sortable: false },
@@ -357,7 +360,7 @@ const DealerTable = ({
           <TableBody>
             {parentLoading ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 10 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 10 }}>
                   <CircularProgress size={40} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                     Loading dealers...
@@ -366,7 +369,7 @@ const DealerTable = ({
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 8 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontStyle: "italic" }}>
                     No dealers found matching your criteria.
                   </Typography>
@@ -470,6 +473,53 @@ const DealerTable = ({
                       <Typography variant="caption" color="text.secondary">
                         {dealer.permanentAddress?.state || dealer.state || "N/A"}
                       </Typography>
+                    </TableCell>
+
+                    {/* Step Progress & Next Step Alert */}
+                    <TableCell sx={{ minWidth: 160 }}>
+                      {(() => {
+                        const progress = computeDealerProgress(dealer);
+                        return (
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                              <Chip
+                                size="small"
+                                label={`${progress.completedCount}/${progress.totalSteps} Steps`}
+                                color={
+                                  progress.isApproved
+                                    ? "success"
+                                    : progress.hasActionRequired
+                                    ? "error"
+                                    : progress.canApprove
+                                    ? "success"
+                                    : "primary"
+                                }
+                                sx={{ fontWeight: 800, fontSize: "0.68rem", height: 20 }}
+                              />
+                            </Box>
+                            {progress.firstPendingStep && !progress.isApproved ? (
+                              <Tooltip title={progress.firstPendingStep.blockingReason || progress.firstPendingStep.consequence}>
+                                <Chip
+                                  size="small"
+                                  variant="outlined"
+                                  label={`Pending: ${progress.firstPendingStep.shortTitle}`}
+                                  color={progress.firstPendingStep.status === "action_required" ? "error" : "warning"}
+                                  onClick={() => navigate(`/view-dealer/${dealer._id}`)}
+                                  sx={{
+                                    fontWeight: 700,
+                                    fontSize: "0.65rem",
+                                    height: 20,
+                                    cursor: "pointer",
+                                    maxWidth: 160,
+                                    "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", px: 0.5 },
+                                    "&:hover": { bgcolor: "#f1f5f9" },
+                                  }}
+                                />
+                              </Tooltip>
+                            ) : null}
+                          </Box>
+                        );
+                      })()}
                     </TableCell>
 
                     {/* Services: Pickup / Drop */}

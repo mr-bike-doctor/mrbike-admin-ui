@@ -285,8 +285,8 @@ export const getBookingCompletionPhotos = (bookingId) =>
 // whole pricing engine from this one number (subtotal, tax, customer total,
 // commission, dealer payout) and rejects the call once the booking is billed
 // or paid — nothing is computed admin-side.
-export const updateBookingTowingCharge = (bookingId, towingCharge) =>
-  apiRequest("POST", `/bookings/${bookingId}/towing-charge`, { towingCharge });
+export const updateBookingTowingCharge = (bookingId, towingCharge, reason) =>
+  apiRequest("POST", `/bookings/${bookingId}/towing-charge`, { towingCharge, reason });
 
 export const getAllPayment = () =>
   apiRequest("GET", "/payment/all-payments", {}, false);

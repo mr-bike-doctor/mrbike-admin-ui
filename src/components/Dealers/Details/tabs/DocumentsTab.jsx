@@ -6,13 +6,6 @@ import {
   CardContent,
   Typography,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Button,
   CircularProgress,
   Alert,
@@ -30,15 +23,6 @@ import { verifyDealerDocument, requestDealerDocuments } from "../../../../api";
 import RequestDocumentsDialog, { DEFAULT_DOC_OPTIONS } from "../../RequestDocumentsDialog";
 import DocumentRejectDialog from "../../DocumentRejectDialog";
 
-const StatusChip = ({ uploaded }) => (
-  <Chip
-    label={uploaded ? "Uploaded" : "Pending"}
-    color={uploaded ? "success" : "warning"}
-    size="small"
-    sx={{ fontWeight: 700, fontSize: "0.7rem" }}
-  />
-);
-
 const VERIFICATION_STATUS_MAP = {
   verified: { label: "Verified", color: "success" },
   pending: { label: "Pending Review", color: "warning" },
@@ -48,14 +32,14 @@ const VERIFICATION_STATUS_MAP = {
   reReview: { label: "Waiting For Re-review", color: "info" },
 };
 
-// A "pending" doc on an already-approved dealer can only be a re-upload after a
-// prior rejection/request (uploadDocuments() resets to "pending" on re-submit) —
-// the initial-review flow never reaches "approved" with docs still pending.
-const displayStatus = (status, isApprovedDealer) =>
-  status === "pending" && isApprovedDealer ? "reReview" : status;
+// A "pending" doc on an approved dealer is only "Waiting For Re-review" if an explicit
+// re-verification cycle is active (dealer.reVerification?.active === true).
+// Otherwise it is simply pending review.
+const displayStatus = (status, isApprovedDealer, reVerificationActive) =>
+  status === "pending" && isApprovedDealer && reVerificationActive ? "reReview" : status;
 
-const VerificationChip = ({ status, isApprovedDealer }) => {
-  const resolved = displayStatus(status, isApprovedDealer);
+const VerificationChip = ({ status, isApprovedDealer, reVerificationActive }) => {
+  const resolved = displayStatus(status, isApprovedDealer, reVerificationActive);
   const { label, color } = VERIFICATION_STATUS_MAP[resolved] || VERIFICATION_STATUS_MAP.none;
   return (
     <Chip
@@ -78,6 +62,7 @@ const DocumentVerificationCard = ({
   src,
   status,
   isApprovedDealer,
+  reVerificationActive,
   reason,
   reviewedAt,
   pendingStatus,
@@ -96,7 +81,11 @@ const DocumentVerificationCard = ({
       <CardContent sx={{ p: 2 }}>
         <ImagePreview src={src} label={label} showDownload />
         <Box sx={{ mt: 1.5 }}>
-          <VerificationChip status={status} isApprovedDealer={isApprovedDealer} />
+          <VerificationChip
+            status={status}
+            isApprovedDealer={isApprovedDealer}
+            reVerificationActive={reVerificationActive}
+          />
         </Box>
         {reason && (status === "rejected" || status === "requested") && (
           <Typography variant="caption" color="error.main" sx={{ display: "block", mt: 1 }}>
@@ -166,7 +155,9 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
   const [rejectDoc, setRejectDoc] = useState(null); // { key, label } | null
 
   const isApprovedDealer = dealer.registrationStatus?.toLowerCase() === "approved";
+  const reVerificationActive = Boolean(dealer.reVerification?.active);
   const documentRequests = dealer.documentRequests || {};
+  const [verifyAllLoading, setVerifyAllLoading] = useState(false);
 
   useEffect(() => {
     setDocVerification(dealer.documentVerification || {});
@@ -178,12 +169,33 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
     try {
       await verifyDealerDocument(dealer._id, docKey, status);
       setDocVerification((prev) => ({ ...prev, [docKey]: status }));
+      if (onRefresh) onRefresh();
     } catch (error) {
       setActionError(
         error?.response?.data?.message || "Failed to update document status. Please try again."
       );
     } finally {
       setPendingDoc(null);
+    }
+  };
+
+  const handleVerifyAll = async () => {
+    setActionError(null);
+    setVerifyAllLoading(true);
+    try {
+      await verifyDealerDocument(dealer._id, DOC_KEYS, "verified");
+      const updated = {};
+      DOC_KEYS.forEach((k) => {
+        updated[k] = "verified";
+      });
+      setDocVerification(updated);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      setActionError(
+        error?.response?.data?.message || "Failed to verify all documents. Please try again."
+      );
+    } finally {
+      setVerifyAllLoading(false);
     }
   };
 
@@ -196,6 +208,7 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
     try {
       await verifyDealerDocument(dealer._id, docKey, "rejected", reason);
       setDocVerification((prev) => ({ ...prev, [docKey]: "rejected" }));
+      if (onRefresh) onRefresh();
     } finally {
       setPendingDoc(null);
     }
@@ -261,8 +274,22 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
                       Identity Status
                     </Typography>
                     <Chip
-                      label={dealer.isVerify ? "KYC Verified" : "KYC Pending"}
-                      color={dealer.isVerify ? "success" : "warning"}
+                      label={
+                        dealer.status?.documentVerified ||
+                        dealer.status?.adminApproved ||
+                        dealer.isVerify ||
+                        allDocsVerified(docVerification)
+                          ? "KYC Verified"
+                          : "KYC Pending"
+                      }
+                      color={
+                        dealer.status?.documentVerified ||
+                        dealer.status?.adminApproved ||
+                        dealer.isVerify ||
+                        allDocsVerified(docVerification)
+                          ? "success"
+                          : "warning"
+                      }
                       icon={<VerifiedIcon />}
                       sx={{ fontWeight: 700 }}
                     />
@@ -287,6 +314,25 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
                     icon={allDocsVerified(docVerification) ? <CheckCircleIcon fontSize="small" /> : <PendingIcon fontSize="small" />}
                     sx={{ fontWeight: 800, fontSize: "0.7rem" }}
                   />
+                  {!allDocsVerified(docVerification) && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      disabled={verifyAllLoading || !!pendingDoc}
+                      startIcon={
+                        verifyAllLoading ? (
+                          <CircularProgress size={14} color="inherit" />
+                        ) : (
+                          <CheckCircleIcon fontSize="small" />
+                        )
+                      }
+                      onClick={handleVerifyAll}
+                      sx={{ textTransform: "none", fontWeight: 700 }}
+                    >
+                      Verify All Documents
+                    </Button>
+                  )}
                   <Button
                     size="small"
                     variant="outlined"
@@ -329,88 +375,17 @@ const DocumentsTab = ({ dealer, onRefresh }) => {
                       src={row.src}
                       status={docVerification[row.verifyKey] || "none"}
                       isApprovedDealer={isApprovedDealer}
+                      reVerificationActive={reVerificationActive}
                       reason={documentRequests[row.verifyKey]?.reason}
                       reviewedAt={documentRequests[row.verifyKey]?.requestedAt}
                       pendingStatus={pendingDoc?.key === row.verifyKey ? pendingDoc.status : null}
-                      disabled={!!pendingDoc}
+                      disabled={!!pendingDoc || verifyAllLoading}
                       onVerify={(status) => handleDocVerify(row.verifyKey, status)}
                       onRejectClick={() => setRejectDoc({ key: row.verifyKey, label: row.name })}
                     />
                   </Grid>
                 ))}
               </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Verification Status Table */}
-        <Grid item xs={12} md={8}>
-          <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 3 }}>
-            <CardContent sx={{ p: 3 }}>
-              <SectionHeader icon={<VerifiedIcon />} title="Verification Status" />
-              <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ borderRadius: 2 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: "grey.50" }}>
-                      <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                        Document
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                        Status
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase" }}>
-                        Verification
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {docStatus.map((row) => (
-                      <TableRow key={row.name} hover>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {row.name}
-                        </TableCell>
-                        <TableCell>
-                          <StatusChip uploaded={row.uploaded} />
-                        </TableCell>
-                        <TableCell>
-                          <VerificationChip
-                            status={docVerification[row.verifyKey] || "none"}
-                            isApprovedDealer={isApprovedDealer}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow hover>
-                      <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                        Shop Profile
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={dealer.isProfile ? "Completed" : "Incomplete"}
-                          color={dealer.isProfile ? "success" : "warning"}
-                          size="small"
-                          sx={{ fontWeight: 700, fontSize: "0.7rem" }}
-                        />
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                    <TableRow hover>
-                      <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                        Identity Verification
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={dealer.isVerify ? "Verified" : "Unverified"}
-                          color={dealer.isVerify ? "success" : "error"}
-                          size="small"
-                          sx={{ fontWeight: 700, fontSize: "0.7rem" }}
-                        />
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
             </CardContent>
           </Card>
         </Grid>

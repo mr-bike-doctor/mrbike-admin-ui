@@ -6,13 +6,20 @@ import { API_BASE_URL } from "./api";
 const SOCKET_URL = API_BASE_URL.replace(/\/bikedoctor\/?$/, "");
 
 let socket = null;
+let socketToken = "";
 
 export const getSocket = () => {
-  if (!socket) {
+  const token = localStorage.getItem("adminToken") || "";
+  if (!socket || socketToken !== token) {
+    if (socket) socket.disconnect();
+    socketToken = token;
     socket = io(SOCKET_URL, {
+      auth: { token },
+      autoConnect: false,
       withCredentials: true,
       transports: ["websocket", "polling"],
     });
   }
+  if (!socket.connected) socket.connect();
   return socket;
 };

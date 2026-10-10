@@ -43,6 +43,7 @@ import BusinessSettingsTab from "./Details/tabs/BusinessSettingsTab";
 import ActivityTab from "./Details/tabs/ActivityTab";
 import NotificationsTab from "./Details/tabs/NotificationsTab";
 import DealerServicesManager from "./ServicesV2/DealerServicesManager";
+import DealerApprovalProgressTracker from "./Progress/DealerApprovalProgressTracker";
 
 function CustomTabPanel({ children, value, index }) {
   return (
@@ -333,14 +334,28 @@ const VendorDealerDetails = () => {
       yPos += 5;
 
       addSection("Document Status");
+      const isShopProfileDone = Boolean(
+        dealer.isProfile ||
+        dealer.submittedAt ||
+        dealer.status?.adminApproved ||
+        dealer.formProgress?.shopDetails?.completed
+      );
+      const isVerifiedText = dealer.status?.adminApproved
+        ? "Approved"
+        : dealer.status?.documentVerified || dealer.isVerify
+        ? "Verified"
+        : dealer.submittedAt
+        ? "Pending Review"
+        : "Unverified";
+
       const docStatus = [
         ["Document Type", "Status"],
         ["Aadhar Card Front", dealer.documents?.aadharFront ? "Uploaded" : "Pending"],
         ["Aadhar Card Back", dealer.documents?.aadharBack ? "Uploaded" : "Pending"],
         ["PAN Card Front", dealer.documents?.panCardFront ? "Uploaded" : "Pending"],
         ["Passbook", dealer.bankDetails?.passbookImage ? "Uploaded" : "Pending"],
-        ["Shop Profile", dealer.isProfile ? "Completed" : "Incomplete"],
-        ["Verification", dealer.isVerify ? "Verified" : "Unverified"],
+        ["Shop Profile", isShopProfileDone ? "Completed" : "Incomplete"],
+        ["Verification", isVerifiedText],
       ];
       doc.autoTable({
         body: docStatus,
@@ -412,8 +427,19 @@ const VendorDealerDetails = () => {
         pdfLoading={pdfLoading}
       />
 
-      {/* Tab Card */}
+      {/* Tab Card & Progress Tracker */}
       <Box sx={{ px: { xs: 2, sm: 4 }, pb: 6 }}>
+        {/* Onboarding & Approval Step Progress Tracker */}
+        <DealerApprovalProgressTracker
+          dealer={dealer}
+          dealerServices={dealerServices}
+          onStepClick={(step) => {
+            if (step.tabIndex !== undefined && step.tabIndex !== null) {
+              setTabIndex(step.tabIndex);
+            }
+          }}
+        />
+
         <Card
           elevation={0}
           sx={{

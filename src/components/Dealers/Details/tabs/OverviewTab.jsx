@@ -13,6 +13,28 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import { InfoField, SectionHeader } from "../DealerShared";
 
 const OverviewTab = ({ dealer }) => {
+  const isProfileDone = Boolean(
+    dealer.isProfile ||
+    dealer.submittedAt ||
+    dealer.status?.adminApproved ||
+    dealer.formProgress?.shopDetails?.completed
+  );
+
+  const verificationStatusText = dealer.status?.adminApproved
+    ? "Approved"
+    : dealer.status?.documentVerified || dealer.isVerify
+    ? "Verified"
+    : dealer.submittedAt
+    ? "Pending Review"
+    : "Unverified";
+
+  const isVerifiedColor =
+    dealer.status?.adminApproved || dealer.status?.documentVerified || dealer.isVerify
+      ? "success.main"
+      : dealer.submittedAt
+      ? "warning.main"
+      : "error.main";
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
       <Grid container spacing={3}>
@@ -109,9 +131,9 @@ const OverviewTab = ({ dealer }) => {
                     <Typography
                       variant="body2"
                       fontWeight="700"
-                      color={dealer.isProfile ? "success.main" : "warning.main"}
+                      color={isProfileDone ? "success.main" : "warning.main"}
                     >
-                      {dealer.isProfile ? "Completed" : "Incomplete"}
+                      {isProfileDone ? "Completed" : "Incomplete"}
                     </Typography>
                   </Box>
                 </Grid>
@@ -128,9 +150,9 @@ const OverviewTab = ({ dealer }) => {
                     <Typography
                       variant="body2"
                       fontWeight="700"
-                      color={dealer.isVerify ? "success.main" : "error.main"}
+                      color={isVerifiedColor}
                     >
-                      {dealer.isVerify ? "Verified" : "Unverified"}
+                      {verificationStatusText}
                     </Typography>
                   </Box>
                 </Grid>
