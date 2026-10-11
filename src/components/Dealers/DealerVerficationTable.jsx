@@ -26,9 +26,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Pending as PendingIcon,
   Cancel as CancelIcon,
-  Info as InfoIcon,
   MoreVert as MoreVertIcon,
-  VerifiedUser as VerifiedIcon,
   FiberManualRecord as DotIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";

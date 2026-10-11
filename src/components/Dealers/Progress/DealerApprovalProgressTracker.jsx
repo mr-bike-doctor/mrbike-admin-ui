@@ -19,7 +19,6 @@ import {
   HourglassEmpty as HourglassEmptyIcon,
   ArrowForward as ArrowForwardIcon,
   Verified as VerifiedIcon,
-  WarningAmber as WarningIcon,
 } from "@mui/icons-material";
 import { computeDealerProgress } from "../../../utils/dealerProgressHelper";
 

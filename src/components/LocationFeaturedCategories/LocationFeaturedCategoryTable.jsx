@@ -192,9 +192,9 @@ const LocationFeaturedCategoryTable = ({
                         <td>{new Date(item.createdAt).toLocaleDateString()}</td>
                         <td className="d-flex align-items-center">
                           <div className="dropdown">
-                            <a href="#" className="btn-action-icon" data-bs-toggle="dropdown" aria-expanded="false">
+                            <button type="button" className="btn-action-icon" data-bs-toggle="dropdown" aria-expanded="false">
                               <i className="fas fa-ellipsis-v" />
-                            </a>
+                            </button>
                             <ul className="dropdown-menu dropdown-menu-end">
                               <li>
                                 <button

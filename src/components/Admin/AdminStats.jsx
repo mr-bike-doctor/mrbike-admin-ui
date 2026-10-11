@@ -1,9 +1,8 @@
 import React from "react";
-import { Box, Card, CardContent, Typography, Grid, IconButton } from "@mui/material";
+import { Box, Card, CardContent, Typography, Grid } from "@mui/material";
 import {
   People as PeopleIcon,
   CheckCircle as ActiveIcon,
-  Cancel as InactiveIcon,
   SupervisorAccount as RoleIcon,
 } from "@mui/icons-material";
 

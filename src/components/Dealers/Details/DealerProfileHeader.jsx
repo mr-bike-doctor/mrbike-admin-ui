@@ -71,8 +71,6 @@ const DealerProfileHeader = ({ dealer, id, onRefresh, onExportPDF, pdfLoading })
 
   const handleBlockToggle = async () => {
     const next = !isBlocked;
-    const label = next ? "Block" : "Unblock";
-
     if (next) {
       const result = await Swal.fire({
         title: "Block Dealer?",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import DealerForm from '../../components/Dealers/updateDealer';
 import Swal from 'sweetalert2';
 import axios from 'axios';

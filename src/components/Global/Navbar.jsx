@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Box, Stack, Avatar, Typography, Menu, MenuItem, IconButton, Tooltip, Divider, ListItemIcon } from "@mui/material"
 import { Logout as LogoutIcon, Person as PersonIcon, Menu as MenuIcon } from "@mui/icons-material"
 import React, { useState } from "react"
-import img1 from "../../assets2/img/logos/logo.png"
 import img2 from "../../assets2/img/logos/logo-small.png"
 import img3 from "../../assets/img/profiles/avatar-07.jpg"
 import GlobalSearch from "./GlobalSearch"

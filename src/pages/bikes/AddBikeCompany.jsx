@@ -20,7 +20,6 @@ import {
   IconButton,
 } from "@mui/material";
 import {
-  Add as AddIcon,
   Home as HomeIcon,
   NavigateNext as NavigateNextIcon,
   Business as CompanyIcon,
@@ -29,7 +28,7 @@ import {
   CheckCircle as SuccessIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
   addBikeVariant,
@@ -50,7 +49,6 @@ const AddBike = () => {
   const [engineCC, setEngineCC] = useState("");
   const [companies, setCompanies] = useState([]);
   const [models, setModels] = useState([]);
-  const navigate = useNavigate();
 
   // Fetch companies on component load
   useEffect(() => {

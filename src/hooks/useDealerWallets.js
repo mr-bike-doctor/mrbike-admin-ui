@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchDealerWallets } from "../services/financeService";
 
 const useDealerWallets = (params = {}) => {
+  const paramsKey = JSON.stringify(params);
   const [wallets, setWallets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -11,7 +12,7 @@ const useDealerWallets = (params = {}) => {
     setLoading(true);
     setError("");
     try {
-      const result = await fetchDealerWallets(params);
+      const result = await fetchDealerWallets(JSON.parse(paramsKey));
       setWallets(result.data);
       setPagination(result.pagination);
     } catch (e) {
@@ -20,7 +21,7 @@ const useDealerWallets = (params = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(params)]);
+  }, [paramsKey]);
 
   useEffect(() => {
     load();

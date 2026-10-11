@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchFinanceTransactions } from "../services/financeService";
 
 const useFinanceTransactions = (params = {}) => {
+  const paramsKey = JSON.stringify(params);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -11,7 +12,7 @@ const useFinanceTransactions = (params = {}) => {
     setLoading(true);
     setError("");
     try {
-      const result = await fetchFinanceTransactions(params);
+      const result = await fetchFinanceTransactions(JSON.parse(paramsKey));
       setTransactions(result.data);
       setPagination(result.pagination);
     } catch (e) {
@@ -20,7 +21,7 @@ const useFinanceTransactions = (params = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(params)]);
+  }, [paramsKey]);
 
   useEffect(() => {
     load();

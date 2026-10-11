@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef, useEffect } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import Swal from "sweetalert2"
 import { useDownloadExcel } from "react-export-table-to-excel"
 import jsPDF from "jspdf"
@@ -341,7 +341,7 @@ const BannerTable = ({
     )
   }, [searchTerm, datas])
 
-  const handleDelete = async (bannerId) => {
+  const handleDelete = useCallback(async (bannerId) => {
     Swal.fire({
       title: "Are you sure?",
       text: "You won't be able to revert this!",
@@ -368,7 +368,7 @@ const BannerTable = ({
         }
       }
     })
-  }
+  }, [datas, onBannerDeleted])
 
   const rowsPerPage = 10
 
@@ -445,7 +445,7 @@ const BannerTable = ({
         </td>
       </tr>
     ))
-  }, [currentData])
+  }, [currentData, handleDelete])
 
   return (
     <>

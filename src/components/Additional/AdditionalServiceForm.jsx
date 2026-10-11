@@ -2,11 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Alert,
   Snackbar,
   Grid,
-  Stack,
-  Card,
   Skeleton,
 } from "@mui/material";
 
@@ -154,7 +151,7 @@ const AdditionalServiceForm = ({ serviceId, dealerId, onDataLoaded }) => {
         if (preD && selectedDealer?._id !== preD._id) setSelectedDealer(preD);
       }
     }
-  }, [editData, isEditMode, baseServices, dealers, isLoading, dealerId, onDataLoaded]);
+  }, [editData, isEditMode, baseServices, dealers, isLoading, dealerId, onDataLoaded, selectedBaseService, selectedDealer?._id]);
 
   const addPricingRule = () => {
     const min = Number(newRule.minCc),

@@ -14,7 +14,7 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import VerifiedIcon from "@mui/icons-material/Verified";
-import { ImagePreview, SectionHeader, InfoField } from "../DealerShared";
+import { SectionHeader } from "../DealerShared";
 
 const LiveVerificationTab = ({ dealer }) => {
   const lv = dealer.liveVerification || {};

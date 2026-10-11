@@ -2,10 +2,8 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
   IconButton,
   Button,
-  Stack,
   alpha,
   useTheme,
   Chip,
@@ -13,8 +11,6 @@ import {
 import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import SearchIcon from "@mui/icons-material/Search";
-import { TextField, InputAdornment } from "@mui/material";
 
 const CustomToolbar = ({ onAddRow }) => (
   <GridToolbarContainer sx={{ p: 2, pb: 1, borderBottom: "1px solid", borderColor: "divider", justifyContent: 'space-between' }}>

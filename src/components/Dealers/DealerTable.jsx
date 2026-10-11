@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import { useDownloadExcel } from "react-export-table-to-excel";
 import jsPDF from "jspdf";
@@ -134,17 +134,17 @@ const DealerTable = ({
     sheet: text,
   });
 
-  const exportToPDF = () => {
+  const exportToPDF = useCallback(() => {
     const doc = new jsPDF();
     doc.text(`${text} List`, 14, 10);
     doc.autoTable({ html: "#dealer-table-mui", startY: 20, theme: "striped" });
     doc.save(`${text}_List.pdf`);
-  };
+  }, [text]);
 
   useEffect(() => {
     if (triggerDownloadExcel) triggerDownloadExcel.current = onDownload;
     if (triggerDownloadPDF) triggerDownloadPDF.current = exportToPDF;
-  }, [onDownload]);
+  }, [onDownload, exportToPDF, triggerDownloadExcel, triggerDownloadPDF]);
 
   const handleMenuOpen = (event, dealer) => {
     setAnchorEl(event.currentTarget);

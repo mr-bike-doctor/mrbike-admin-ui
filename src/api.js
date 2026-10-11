@@ -288,6 +288,49 @@ export const getBookingCompletionPhotos = (bookingId) =>
 export const updateBookingTowingCharge = (bookingId, towingCharge, reason) =>
   apiRequest("POST", `/bookings/${bookingId}/towing-charge`, { towingCharge, reason });
 
+export const getAdminBookingModificationCatalog = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/admin-modification/catalog`, {}, false);
+
+export const getAdminBookingScheduleSlots = (bookingId, date) =>
+  apiRequest("GET", `/bookings/${bookingId}/admin-modification/slots?date=${encodeURIComponent(date)}`, {}, false);
+
+export const previewAdminBookingModification = (bookingId, changes) =>
+  apiRequest("POST", `/bookings/${bookingId}/admin-modification/preview`, changes, false);
+
+export const requestAdminBookingConsent = (bookingId, request) =>
+  apiRequest("POST", `/bookings/${bookingId}/admin-modification/consent`, request, false);
+
+export const getAdminBookingConsentStatus = (bookingId, consentId) =>
+  apiRequest("GET", `/bookings/${bookingId}/admin-modification/consent/${consentId}`, {}, false);
+
+export const saveAdminBookingModification = (bookingId, changes) =>
+  apiRequest("POST", `/bookings/${bookingId}/admin-modification`, changes, false);
+
+export const getAdminBookingControlCenter = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/control-center`, {}, false);
+export const getAdminBookingFinancialOverview = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/control-center/financial`, {}, false);
+export const getAdminBookingTracking = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/control-center/tracking`, {}, false);
+export const searchAdminBookingProviders = (bookingId, q = "") =>
+  apiRequest("GET", `/bookings/${bookingId}/provider-candidates?q=${encodeURIComponent(q)}`, {}, false);
+export const reassignAdminBookingProvider = (bookingId, data) =>
+  apiRequest("POST", `/bookings/${bookingId}/reassign-provider`, data, false);
+export const cancelAdminBookingForSupport = (bookingId, reason, expectedUpdatedAt) =>
+  apiRequest("POST", `/bookings/${bookingId}/support-cancel`, { reason, expectedUpdatedAt }, false);
+export const createAdminBookingSupportCase = (bookingId, data) =>
+  apiRequest("POST", `/ticket/booking/${bookingId}`, data, false);
+export const addAdminTicketReply = (ticketId, message, internal = false) =>
+  apiRequest("POST", `/ticket/reply/${ticketId}`, { message, internal }, false);
+export const updateAdminTicketStatus = (ticketId, status) =>
+  apiRequest("POST", `/ticket/status/${ticketId}`, { status }, false);
+export const getAdminBookingSupportAssignees = () =>
+  apiRequest("GET", "/ticket/booking-assignees", {}, false);
+export const assignAdminBookingSupportCase = (ticketId, assigneeId) =>
+  apiRequest("POST", `/ticket/booking-case/${ticketId}/assignee`, { assigneeId }, false);
+export const getAdminBookingAuditHistory = (bookingId) =>
+  apiRequest("GET", `/bookings/${bookingId}/audit`, {}, false);
+
 export const getAllPayment = () =>
   apiRequest("GET", "/payment/all-payments", {}, false);
 

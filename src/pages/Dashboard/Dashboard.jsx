@@ -20,7 +20,6 @@ import {
   LinearProgress,
 } from "@mui/material";
 import {
-  TrendingUp,
   ShoppingCart,
   Build,
   Redeem,
@@ -328,7 +327,7 @@ const Dashboard = () => {
       blocked: dealers.filter((d) => !!d.isBlocked).length,
       pending,
     };
-  }, [data.dealers, dealerCounts]);
+  }, [data, dealerCounts]);
 
   // ── booking analytics ─────────────────────────────────────────────────────
   const analytics = useMemo(() => {
@@ -401,7 +400,7 @@ const Dashboard = () => {
         ? ((cancelledCount / bookings.length) * 100).toFixed(1)
         : 0,
     };
-  }, [data.bookings]);
+  }, [data]);
 
   // ── dealer alerts ─────────────────────────────────────────────────────────
   const highCancellationDealers = useMemo(() => {

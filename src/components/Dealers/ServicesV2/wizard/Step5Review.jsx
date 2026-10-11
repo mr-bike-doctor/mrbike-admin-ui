@@ -16,7 +16,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import BusinessIcon from "@mui/icons-material/Business";
 import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import FilterListIcon from "@mui/icons-material/FilterList";
 
 const StatCard = ({ icon, value, label, color }) => (

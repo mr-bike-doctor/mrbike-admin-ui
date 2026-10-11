@@ -41,7 +41,6 @@ import Banners from "./pages/banners/Banners";
 import PaymentList from "./pages/payment/payment";
 import OfferList from "./pages/Offers/OfferList";
 import DealerUpdate from "./pages/Dealer/updateDealer";
-import DealerPayoutList from "./pages/Dealer/DealerPayoutList";
 import FinanceDashboard from "./pages/finance/FinanceDashboard";
 import WithdrawalManagement from "./pages/finance/WithdrawalManagement";
 import DealerWallets from "./pages/finance/DealerWallets";

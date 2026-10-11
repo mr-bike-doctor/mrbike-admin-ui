@@ -75,7 +75,7 @@ const VendorDealerDetails = () => {
   const navigate = useNavigate();
   const [dealer, setDealer] = useState(null);
   const [dealerServices, setDealersServices] = useState([]);
-  const [additionalServices, setAdditionalServices] = useState([]);
+  const [, setAdditionalServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [tabIndex, setTabIndex] = useState(0);
@@ -176,36 +176,6 @@ const VendorDealerDetails = () => {
     };
     init();
   }, [fetchDealer, fetchServices, fetchActivityHistory, fetchNotifications]);
-
-  const groupedServices = React.useMemo(() => {
-    const groups = {};
-    dealerServices.forEach((service) => {
-      const baseId = service.base_service_id?._id || service.base_service_id || "unknown";
-      if (!groups[baseId]) {
-        groups[baseId] = {
-          details: service.base_service_id || { name: service.name || "Unknown Service" },
-          instances: [],
-        };
-      }
-      groups[baseId].instances.push(service);
-    });
-    return Object.values(groups);
-  }, [dealerServices]);
-
-  const groupedAdditionalServices = React.useMemo(() => {
-    const groups = {};
-    additionalServices.forEach((service) => {
-      const baseId = service.base_additional_service_id?._id || service.base_additional_service_id || "unknown";
-      if (!groups[baseId]) {
-        groups[baseId] = {
-          details: service.base_additional_service_id || { name: service.name || "Unknown Service" },
-          instances: [],
-        };
-      }
-      groups[baseId].instances.push(service);
-    });
-    return Object.values(groups);
-  }, [additionalServices]);
 
   const downloadDealerPDF = async () => {
     setPdfLoading(true);

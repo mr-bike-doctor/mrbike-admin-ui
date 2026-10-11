@@ -105,7 +105,7 @@ const Alladmins = ({ triggerDownloadExcel, triggerDownloadPDF }) => {
     }
   };
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Sorting State

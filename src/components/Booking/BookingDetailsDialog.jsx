@@ -35,6 +35,7 @@ import {
   LocalShipping as TowingIcon,
   CurrencyRupee as CurrencyRupeeIcon,
   PhotoLibrary as PhotoLibraryIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { updateBookingTowingCharge, getBookingCompletionPhotos } from "../../api";
@@ -48,6 +49,8 @@ import {
   canEditTowingCharge,
 } from "./bookingHelpers";
 import InvoiceModal from "../Invoice/InvoiceModal";
+import BookingModificationDialog from "./BookingModificationDialog";
+import BookingControlCenterPanel from "./BookingControlCenterPanel";
 
 // Reusable booking details view — used by the Bookings table and the Customer Details modal's
 // "View Booking" action so both surfaces share the exact same booking view.
@@ -70,6 +73,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
   const [completionPhotos, setCompletionPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [viewerPhoto, setViewerPhoto] = useState(null);
+  const [modificationOpen, setModificationOpen] = useState(false);
 
   useEffect(() => {
     setPricingPatch(null);
@@ -763,10 +767,19 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
                 </Paper>
               </Grid>
             </Grid>
+            <BookingControlCenterPanel booking={booking} onRefresh={onRefresh} />
           </>
         )}
       </DialogContent>
       <DialogActions sx={{ p: 3, bgcolor: "#fff", borderTop: "1px solid #eee" }}>
+        <Button
+          onClick={() => setModificationOpen(true)}
+          variant="outlined"
+          startIcon={<EditIcon />}
+          sx={{ borderRadius: 2, px: 3, py: 1.2, fontWeight: 800, textTransform: "none" }}
+        >
+          Edit Booking
+        </Button>
         <Button
           onClick={() => setInvoiceOpen(true)}
           variant="outlined"
@@ -789,6 +802,16 @@ const BookingDetailsDialog = ({ open, booking, onClose, onRefresh }) => {
         open={invoiceOpen}
         bookingId={booking?._id}
         onClose={() => setInvoiceOpen(false)}
+      />
+
+      <BookingModificationDialog
+        open={modificationOpen}
+        booking={view}
+        onClose={() => setModificationOpen(false)}
+        onSaved={async (updated) => {
+          setPricingPatch(updated || null);
+          await onRefresh?.();
+        }}
       />
 
       {/* Full-screen viewer for a completion photo. */}

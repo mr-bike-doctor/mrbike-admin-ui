@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { updateDealer } from '../../api';
-import StateCitySelect from '../Global/StateCitySelect';
 import { getApiErrorMessage } from "../../utils/apiError";
-
-const API_BASE_URL = "https://api.mrbikedoctor.cloud/bikedoctor/dealerAuth"
 
 // const UpdateDealerVerify = () => {
 //     const { id } = useParams();
@@ -81,38 +78,6 @@ const UpdateDealerVerify = () => {
 
         fetchDealer();
     }, [id]);
-
-    const handleApproval = async (action) => {
-        try {
-            const res = await axios.put(
-                `https://api.mrbikedoctor.cloud/bikedoctor/dealerAuth/${action}/${id}`,
-                {},
-                {
-                    headers: {
-                        token: localStorage.getItem("adminToken")
-                    }
-                }
-            );
-
-            if (res.data.success) {
-                Swal.fire("Success", `Dealer ${action} successfully`, "success");
-                setIsVerified(action === "approve");
-                if (action === "approve") {
-                    // Refresh data after approval
-                    const res = await axios.get(`https://api.mrbikedoctor.cloud/bikedoctor/dealerAuth/pending-registrations/${id}`);
-                    setDealerData(res.data.vendor);
-                } else {
-                    navigate("/dealers");
-                }
-            }
-        } catch (error) {
-            Swal.fire(
-                "Error",
-                getApiErrorMessage(error, `Failed to ${action} dealer.`),
-                "error",
-            );
-        }
-    };
 
     // const showApprovalDialog = () => {
     //     Swal.fire({
@@ -228,7 +193,7 @@ export default UpdateDealerVerify;
 
 const DealerForm = ({ dealerData, dealerId, isEdit, isVerified, showApprovalDialog }) => {
     const navigate = useNavigate();
-    const [shopImages, setShopImages] = useState([]);
+    const [, setShopImages] = useState([]);
     const [existingShopImages, setExistingShopImages] = useState(
         isEdit && dealerData?.shopImages?.length > 0
             ? dealerData.shopImages.map(img => `https://api.mrbikedoctor.cloud/${img}`)
@@ -359,7 +324,7 @@ const DealerForm = ({ dealerData, dealerId, isEdit, isVerified, showApprovalDial
     const [panCardFront, setPanCardFront] = useState(null);
     const [aadharFront, setAadharFront] = useState(null);
     const [aadharBack, setAadharBack] = useState(null);
-    const [sameAsPermanent, setSameAsPermanent] = useState(
+    const [, setSameAsPermanent] = useState(
         isEdit && dealerData &&
         dealerData.presentAddress?.address === dealerData.permanentAddress?.address &&
         dealerData.presentAddress?.state === dealerData.permanentAddress?.state &&
@@ -368,7 +333,7 @@ const DealerForm = ({ dealerData, dealerId, isEdit, isVerified, showApprovalDial
 
     // Handle changes in form inputs
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
+        const { name, value, checked } = e.target;
 
         if (name === "sameAsPermanent") {
             setSameAsPermanent(checked);

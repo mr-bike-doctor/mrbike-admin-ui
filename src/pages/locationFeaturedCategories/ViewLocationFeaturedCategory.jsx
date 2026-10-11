@@ -7,7 +7,6 @@ import {
 import {
   LocationOn as LocationOnIcon,
   Edit as EditIcon,
-  ArrowBack as ArrowBackIcon,
   CalendarToday as CalendarIcon,
   Radar as RadarIcon,
 } from "@mui/icons-material";

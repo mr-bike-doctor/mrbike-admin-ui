@@ -33,8 +33,6 @@ import AddServiceWizard from "./wizard/AddServiceWizard";
 import EditServiceDialog from "./EditServiceDialog";
 import Swal from "sweetalert2";
 
-const EMPTY_ARRAY = [];
-
 const pickLatestDate = (current, next) => {
   if (!current) return next || null;
   if (!next) return current;
