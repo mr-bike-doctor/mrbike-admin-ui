@@ -19,6 +19,7 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import SettingsIcon from "@mui/icons-material/Settings";
 import HistoryIcon from "@mui/icons-material/History";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import EmergencyIcon from "@mui/icons-material/Emergency";
 import { FaTools } from "react-icons/fa";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
@@ -43,6 +44,7 @@ import BusinessSettingsTab from "./Details/tabs/BusinessSettingsTab";
 import ActivityTab from "./Details/tabs/ActivityTab";
 import NotificationsTab from "./Details/tabs/NotificationsTab";
 import DealerServicesManager from "./ServicesV2/DealerServicesManager";
+import DealerRsaServicesTab from "./Details/tabs/DealerRsaServicesTab";
 import DealerApprovalProgressTracker from "./Progress/DealerApprovalProgressTracker";
 
 function CustomTabPanel({ children, value, index }) {
@@ -66,6 +68,7 @@ const TABS = [
   { label: "Live Verification", icon: <CameraAltIcon sx={{ fontSize: 18 }} /> },
   { label: "Business Settings", icon: <SettingsIcon sx={{ fontSize: 18 }} /> },
   { label: "Services", icon: <FaTools style={{ fontSize: 17 }} /> },
+  { label: "Roadside Assistance Services", icon: <EmergencyIcon sx={{ fontSize: 18 }} /> },
   { label: "Activity", icon: <HistoryIcon sx={{ fontSize: 18 }} /> },
   { label: "Notifications", icon: <NotificationsIcon sx={{ fontSize: 18 }} /> },
 ];
@@ -487,6 +490,10 @@ const VendorDealerDetails = () => {
               </CustomTabPanel>
 
               <CustomTabPanel value={tabIndex} index={7}>
+                <DealerRsaServicesTab dealer={dealer} />
+              </CustomTabPanel>
+
+              <CustomTabPanel value={tabIndex} index={8}>
                 <ActivityTab
                   activity={activityHistory}
                   loading={activityLoading}
@@ -494,7 +501,7 @@ const VendorDealerDetails = () => {
                 />
               </CustomTabPanel>
 
-              <CustomTabPanel value={tabIndex} index={8}>
+              <CustomTabPanel value={tabIndex} index={9}>
                 <NotificationsTab
                   notifications={notifications}
                   loading={notificationsLoading}
