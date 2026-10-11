@@ -1560,3 +1560,18 @@ export const deleteServiceDetailMedia = async (serviceId, url) => {
     throw error;
   }
 };
+
+// Roadside Assistance is a separate catalog and approval workflow. It lives
+// under the authenticated legacy /bikedoctor mount, independently of BaseService.
+export const getRsaServices = () => apiRequest("GET", "/rsa/admin/services", {}, false);
+export const createRsaService = data => apiRequest("POST", "/rsa/admin/services", data, false);
+export const updateRsaService = (id, data) => apiRequest("PUT", `/rsa/admin/services/${id}`, data, false);
+export const getRsaAreas = () => apiRequest("GET", "/rsa/admin/areas", {}, false);
+export const createRsaArea = data => apiRequest("POST", "/rsa/admin/areas", data, false);
+export const updateRsaArea = (id, data) => apiRequest("PUT", `/rsa/admin/areas/${id}`, data, false);
+export const setRsaDealerPermission = (dealerId, data) => apiRequest("PUT", `/rsa/admin/dealers/${dealerId}/permission`, data, false);
+export const getRsaProposals = () => apiRequest("GET", "/rsa/admin/proposals", {}, false);
+export const reviewRsaProposal = (id, data) => apiRequest("PATCH", `/rsa/admin/proposals/${id}/review`, data, false);
+export const getRsaRequests = () => apiRequest("GET", "/rsa/admin/requests", {}, false);
+export const getRsaRequestAudit = id => apiRequest("GET", `/rsa/admin/requests/${id}/audit`, {}, false);
+export const assignRsaRequest = (id, dealerId) => apiRequest("POST", `/rsa/admin/requests/${id}/assign`, {dealerId}, false);

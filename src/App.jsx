@@ -81,6 +81,7 @@ import AppContentPage from "./pages/preferences/AppContent";
 import MobileAppUpdates from "./pages/preferences/MobileAppUpdates";
 import PlatformCharges from "./pages/preferences/PlatformCharges";
 import Reviews from "./pages/reviews/Reviews";
+import RoadsideAssistanceAdmin from "./pages/roadside/RoadsideAssistanceAdmin";
 const theme = createTheme({
   palette: {
     primary: {
@@ -222,6 +223,7 @@ const AppContent = () => {
           <Route path="/base-services" element={<MajorServices />} />
           <Route path="/MajorServices" element={<MajorServices />} />
           <Route path="/service-categories" element={<ServiceCategories />} />
+          <Route path="/roadside-assistance" element={<RoadsideAssistanceAdmin />} />
           <Route path="/bike-compatibility" element={<BikeCompatibility />} />
           <Route path="/home-insights" element={<HomeInsights />} />
           <Route

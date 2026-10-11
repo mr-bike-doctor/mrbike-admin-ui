@@ -40,6 +40,7 @@ import {
   SystemUpdateAltOutlined as MobileAppUpdatesIcon,
   TwoWheelerOutlined as BikeIcon,
   ViewCarouselOutlined as FeaturedIcon,
+  TwoWheelerOutlined as RoadsideIcon,
 } from "@mui/icons-material";
 
 export const DRAWER_WIDTH = 280;
@@ -87,6 +88,7 @@ export const menuSections = [
         activePaths: ["/base-services", "/create-base-service", "/edit-base-service/:id", "/view-service/:id"],
       },
       { title: "Categories", icon: <CategoryIcon />, path: "/service-categories" },
+      { title: "Roadside Assistance", icon: <RoadsideIcon />, path: "/roadside-assistance" },
       {
         title: "Additional Services", icon: <OfferIcon />, path: "/base-additional-services",
         activePaths: ["/create-base-additional-service", "/edit-base-additional-service/:id", "/create-additional-service", "/additional-services/view/:id", "/additional-services/edit/:id"],
