@@ -205,6 +205,20 @@ const BasicsTab = ({
         />
       </Stack>
 
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <FormControlLabel
+          control={<Switch checked={!!form.isFeatured} onChange={onSwitchChange} name="isFeatured" />}
+          label="Feature on Customer Home"
+        />
+        <FormControlLabel
+          control={<Switch checked={!!form.isQuickService} onChange={onSwitchChange} name="isQuickService" />}
+          label="Show as Quick Service"
+        />
+      </Stack>
+      <Typography variant="caption" color="text.secondary">
+        Home selections appear only when a nearby garage can book this service for the customer’s bike.
+      </Typography>
+
       <Box>
         <Typography variant="subtitle2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>
           Main Image {!isEdit && "*"}

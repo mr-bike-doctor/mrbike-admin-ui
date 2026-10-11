@@ -52,6 +52,8 @@ const emptyForm = {
   duration: "",
   pickupAvailable: false,
   warranty: false,
+  isFeatured: false,
+  isQuickService: false,
   // Phase 1 lightweight BaseService fields
   shortDescription: "",
   warrantyText: "",
@@ -138,6 +140,8 @@ const BaseServiceForm = ({ isEdit = false }) => {
           duration: service?.duration ?? "",
           pickupAvailable: !!service?.pickupAvailable,
           warranty: !!service?.warranty,
+          isFeatured: !!service?.isFeatured,
+          isQuickService: !!service?.isQuickService,
           shortDescription: detailData?.shortDescription ?? service?.shortDescription ?? "",
           warrantyText: detailData?.warrantyText ?? service?.warrantyText ?? "",
           recommendedInterval: detailData?.recommendedInterval ?? service?.recommendedInterval ?? "",
@@ -246,6 +250,8 @@ const BaseServiceForm = ({ isEdit = false }) => {
       baseData.append("duration", form.duration || 0);
       baseData.append("pickupAvailable", form.pickupAvailable);
       baseData.append("warranty", form.warranty);
+      baseData.append("isFeatured", form.isFeatured);
+      baseData.append("isQuickService", form.isQuickService);
       if (image) baseData.append("image", image);
 
       if (!isEdit) {
