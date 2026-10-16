@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert, Avatar, Box, Button, Chip, CircularProgress, Drawer, FormControlLabel,
-  IconButton, MenuItem, Paper, Snackbar, Stack, Switch, Tab, Tabs, Table, TableBody,
+  Alert, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Drawer, FormControlLabel,
+  IconButton, Menu, MenuItem, Paper, Snackbar, Stack, Switch, Tab, Tabs, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -12,19 +12,28 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import EmergencyRoundedIcon from "@mui/icons-material/EmergencyRounded";
 import HandymanRoundedIcon from "@mui/icons-material/HandymanRounded";
 import LocationOnRoundedIcon from "@mui/icons-material/LocationOnRounded";
+import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import TwoWheelerRoundedIcon from "@mui/icons-material/TwoWheelerRounded";
 import { useNavigate } from "react-router-dom";
-import { assignRsaRequest, assignRsaServiceToDealer, assignRsaTowingProvider, createRsaArea, createRsaService, getRsaAreas, getRsaDealers, getRsaProposals, getRsaRequestAudit, getRsaRequests, getRsaServiceDealers, getRsaServices, reviewRsaProposal, revokeRsaDealerService, searchRsaDealerDirectory, setRsaDealerPermission, setRsaDealerServiceStatus, updateRsaArea, updateRsaService } from "../../api";
+import { assignRsaRequest, assignRsaServiceToDealer, assignRsaTowingProvider, createRsaArea, createRsaService, getRsaAreas, getRsaDealers, getRsaProposals, getRsaRequestAudit, getRsaRequests, getRsaServiceDealers, getRsaServices, reviewRsaProposal, revokeRsaDealerService, searchRsaDealerDirectory, setRsaDealerPermission, setRsaDealerServicePrice, setRsaDealerServiceStatus, updateRsaArea, updateRsaService } from "../../api";
 
 const NAVY = "#14253d";
 const BLUE = "#2463eb";
 const surface = { border: "1px solid #e7ebf1", borderRadius: 3, boxShadow: "0 2px 8px rgba(20,37,61,.035)", bgcolor: "#fff" };
 const unwrap = response => response?.data?.data ?? response?.data ?? [];
-const emptyService = { name: "", description: "", icon: "wrench", type: "repair", isActive: false };
-const serviceTypes = ["repair", "puncture", "battery", "towing", "fuel", "other"];
-const readable = value => ({ repair: "On-site repair", puncture: "Puncture support", battery: "Battery help", towing: "Towing", fuel: "Fuel delivery", other: "Other" }[value] || value || "—");
+const rsaServiceCatalog = [
+  { type: "repair", name: "Bike Not Starting", description: "Engine won’t start or starting issues", icon: "bike" },
+  { type: "puncture", name: "Puncture Repair", description: "Flat tyre or slow pressure", icon: "wheel" },
+  { type: "battery", name: "Battery / Electrical", description: "Battery dead or electrical faults", icon: "battery" },
+  { type: "towing", name: "Towing Required", description: "Need to tow your bike to a garage", icon: "towing" },
+  { type: "fuel", name: "Fuel Assistance", description: "Out of fuel or wrong fuel", icon: "fuel" },
+  { type: "other", name: "Other Breakdown", description: "Any other roadside issue", icon: "repair" },
+];
+const emptyService = { ...rsaServiceCatalog[0], isActive: false };
+const serviceTypes = rsaServiceCatalog.map(({ type, name }) => ({ type, name }));
+const readable = value => rsaServiceCatalog.find(item => item.type === value)?.name || value || "—";
 const idOf = value => value?._id || value?.id || value || "";
 const displayName = dealer => dealer?.shopName || dealer?.name || dealer?.businessName || "—";
 const dateLabel = value => value ? new Date(value).toLocaleString() : "—";
@@ -39,6 +48,9 @@ export default function RoadsideAssistanceAdmin() {
   const [dealerDrawer, setDealerDrawer] = useState(false), [dealer, setDealer] = useState({ id: "", capacity: "0", towing: false, enabled: false });
   const [requestDrawer, setRequestDrawer] = useState(null), [requestAudit, setRequestAudit] = useState([]), [auditBusy, setAuditBusy] = useState(false);
   const [proposalFilter, setProposalFilter] = useState("pending"), [requestFilter, setRequestFilter] = useState("all"), [dealerSearch, setDealerSearch] = useState("");
+  const [reviewDialog, setReviewDialog] = useState(null);
+  const [directPriceDialog, setDirectPriceDialog] = useState(null);
+  const [assignmentActionMenu, setAssignmentActionMenu] = useState(null);
   const [manageService, setManageService] = useState(null), [assignmentPage, setAssignmentPage] = useState(1), [assignmentQuery, setAssignmentQuery] = useState(""), [assignmentApproval, setAssignmentApproval] = useState(""), [assignmentActive, setAssignmentActive] = useState(""), [assignmentData, setAssignmentData] = useState(null), [assignmentBusy, setAssignmentBusy] = useState(false), [pickerOpen, setPickerOpen] = useState(false), [pickerQuery, setPickerQuery] = useState(""), [pickerRows, setPickerRows] = useState([]), [pickerBusy, setPickerBusy] = useState(false);
   const [assignmentQueryDebounced, setAssignmentQueryDebounced] = useState("");
 
@@ -91,6 +103,10 @@ export default function RoadsideAssistanceAdmin() {
   const activeRsaDealers = dealers.filter(item => item.rsaEnabled && item.rsaOnline && item.online && item.active && item.adminApproved).length;
 
   const openCreateService = () => { setEditingService(null); setService({ ...emptyService }); setServiceError(""); setServiceDrawer(true); };
+  const selectServiceType = type => {
+    const preset = rsaServiceCatalog.find(item => item.type === type);
+    setService(current => ({ ...current, ...(preset || {}), isActive: current.isActive }));
+  };
   const openEditService = item => { setEditingService(item); setService({ name: item.name || "", description: item.description || "", icon: item.icon || "wrench", type: item.type || "repair", isActive: !!item.isActive }); setServiceError(""); setServiceDrawer(true); };
   const saveService = async event => {
     event.preventDefault();
@@ -118,24 +134,45 @@ export default function RoadsideAssistanceAdmin() {
   };
   const review = async (row, action) => {
     if (action === "approve" && row.proposedPrice == null) { setError("The dealer must submit a price before Admin can approve this assignment."); return; }
-    const proposed = Number(row.proposedPrice);
-    if (action === "approve") {
-      if (window.confirm(`Approve the dealer’s proposed price of ₹${proposed}?`)) await run(() => reviewRsaProposal(idOf(row), { action: "approve", price: proposed }), "Price proposal approved.");
+    setReviewDialog({ row, action, price: String(row.proposedPrice ?? ""), reason: "", error: "" });
+  };
+  const submitReview = async event => {
+    event.preventDefault();
+    if (!reviewDialog) return;
+    const { row, action, price: rawPrice, reason: rawReason } = reviewDialog;
+    const reason = rawReason.trim();
+    if ((action === "reject" || action === "revise") && !reason) {
+      setReviewDialog(current => ({ ...current, error: action === "reject" ? "Enter a reason for rejecting this proposal." : "Add a note for the dealer." }));
       return;
     }
-    if (action === "reject") {
-      const reason = window.prompt("Why are you rejecting this proposal?");
-      if (!reason?.trim()) return;
-      if (window.confirm("Reject this dealer price proposal?")) await run(() => reviewRsaProposal(idOf(row), { action: "reject", reason: reason.trim() }), "Price proposal rejected.");
+    const price = Number(rawPrice);
+    if (action !== "reject" && (!Number.isFinite(price) || price < 0)) {
+      setReviewDialog(current => ({ ...current, error: "Enter a valid price greater than or equal to ₹0." }));
       return;
     }
-    const revised = window.prompt(`Dealer proposed ₹${proposed}. Enter a different price to suggest:`, String(proposed));
-    if (revised === null) return;
-    const price = Number(revised);
-    if (!Number.isFinite(price) || price < 0) { setError("Enter a valid price greater than or equal to ₹0."); return; }
-    const reason = window.prompt("Add a note for the dealer. They must accept this suggestion before their price changes:");
-    if (!reason?.trim()) return;
-    if (window.confirm(`Suggest ₹${price} to the dealer? Their original proposal was ₹${proposed}.`)) await run(() => reviewRsaProposal(idOf(row), { action: "revise", price, reason: reason.trim() }), "Revised price sent to the dealer for acceptance.");
+    const payload = action === "reject" ? { action, reason } : { action, price, ...(action === "revise" ? { reason } : {}) };
+    const success = action === "approve" ? "Price proposal approved." : action === "reject" ? "Price proposal rejected." : "Revised price sent to the dealer for acceptance.";
+    if (await run(() => reviewRsaProposal(idOf(row), payload), success)) setReviewDialog(null);
+  };
+  const openDirectPriceDialog = ({ dealer, row = null }) => setDirectPriceDialog({ dealer, row, price: "", error: "" });
+  const submitDirectPrice = async event => {
+    event.preventDefault();
+    if (!directPriceDialog) return;
+    const price = Number(directPriceDialog.price);
+    if (!Number.isFinite(price) || price < 0 || price > 100000) {
+      setDirectPriceDialog(current => ({ ...current, error: "Enter a valid price from ₹0 to ₹1,00,000." }));
+      return;
+    }
+    const { row, dealer } = directPriceDialog;
+    const action = row
+      ? () => setRsaDealerServicePrice(idOf(row), price)
+      : () => assignRsaServiceToDealer(idOf(manageService), dealer.id, price);
+    const success = await run(action, "RSA service directly approved and enabled for the dealer.");
+    if (success) {
+      setDirectPriceDialog(null);
+      setPickerOpen(false);
+      loadAssignments();
+    }
   };
   const saveDealer = async event => {
     event.preventDefault();
@@ -194,17 +231,78 @@ export default function RoadsideAssistanceAdmin() {
         <Box sx={{ p: { xs: 2, md: 3 }, overflow: "auto", flex: 1 }}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={1.5} sx={{ mb: 2 }}><Box><Stack direction="row" spacing={1} alignItems="center"><Status value={manageService.isActive ? "active" : "inactive"} /><Typography variant="body2" color="text.secondary">Global catalog status</Typography></Stack><Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>Assigned {assignmentData?.summary?.total ?? "—"} · Approved {assignmentData?.summary?.approved ?? "—"} · Active {assignmentData?.summary?.active ?? "—"} · Pending {assignmentData?.summary?.pending ?? "—"}</Typography></Box><Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { setPickerQuery(""); setPickerOpen(true); }} sx={{ textTransform: "none", alignSelf: { xs: "stretch", sm: "center" } }}>Assign Dealer</Button></Stack>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mb: 2 }}><TextField size="small" fullWidth value={assignmentQuery} onChange={e => { setAssignmentQuery(e.target.value); setAssignmentPage(1); }} placeholder="Search Dealer ID, name, shop or phone" /><TextField size="small" select label="Approval" value={assignmentApproval} onChange={e => { setAssignmentApproval(e.target.value); setAssignmentPage(1); }} sx={{ minWidth: 160 }}><MenuItem value="">All approvals</MenuItem>{["pending", "approved", "rejected", "acceptance_pending"].map(x => <MenuItem key={x} value={x}>{readableStatus(x)}</MenuItem>)}</TextField><TextField size="small" select label="Service" value={assignmentActive} onChange={e => { setAssignmentActive(e.target.value); setAssignmentPage(1); }} sx={{ minWidth: 140 }}><MenuItem value="">All statuses</MenuItem><MenuItem value="true">Active</MenuItem><MenuItem value="false">Inactive</MenuItem></TextField></Stack>
-          {assignmentBusy ? <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}><CircularProgress /></Box> : assignmentData?.rows?.length ? <TableContainer sx={{ border: "1px solid #e7ebf1", borderRadius: 2, overflowX: "auto" }}><Table size="small" sx={{ minWidth: 1100 }}><TableHead><TableRow>{["Dealer ID", "Dealer / Shop", "Proposed", "Approved", "Approval", "Service", "RSA permission", "RSA online", "Actions"].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead><TableBody>{assignmentData.rows.map(row => <TableRow key={idOf(row)} hover><TableCell>{row.dealer?.dealerCode || row.dealer?.id}</TableCell><TableCell><Typography fontWeight={700}>{row.dealer?.name || "—"}</Typography><Typography variant="caption" color="text.secondary">{row.dealer?.shopName || "—"}</Typography></TableCell><TableCell>{money(row.proposedPrice)}</TableCell><TableCell>{money(row.approvedPrice)}</TableCell><TableCell><Chip size="small" label={readableStatus(row.priceStatus)} color={statusColorFor(row.priceStatus)} /></TableCell><TableCell><Chip size="small" label={row.dealerActive ? "Active" : "Inactive"} color={row.dealerActive ? "success" : "default"} /></TableCell><TableCell>{row.dealer?.rsaEnabled ? "Enabled" : "Disabled"}</TableCell><TableCell>{row.dealer?.rsaOnline ? "Online" : "Offline"}</TableCell><TableCell><Stack direction="row" spacing={.5} flexWrap="wrap"><Button size="small" onClick={() => { setManageService(null); navigate(`/view-dealer/${row.dealer?.id}`); }}>View Dealer</Button><Button size="small" onClick={() => { setManageService(null); setTab(2); setProposalFilter(row.priceStatus || "all"); }}>View Approval</Button><Button size="small" disabled={row.dealerActive || row.priceStatus !== "approved"} onClick={async () => { if (window.confirm(`Activate ${manageService.name} for ${row.dealer?.name || row.dealer?.dealerCode}?`)) { const ok = await run(() => setRsaDealerServiceStatus(idOf(row), true), "Dealer service activated."); if (ok) loadAssignments(); } }}>Activate</Button><Button size="small" color="warning" disabled={!row.dealerActive} onClick={async () => { if (window.confirm(`Deactivate ${manageService.name} for this dealer?`)) { const ok = await run(() => setRsaDealerServiceStatus(idOf(row), false), "Dealer service deactivated."); if (ok) loadAssignments(); } }}>Deactivate</Button><Button size="small" color="error" onClick={async () => { if (window.confirm(`Remove ${manageService.name} from ${row.dealer?.name || row.dealer?.dealerCode}? Active requests or reserved offers will block removal.`)) { const ok = await run(() => revokeRsaDealerService(idOf(row)), "Service assignment removed."); if (ok) loadAssignments(); } }}>Remove</Button></Stack></TableCell></TableRow>)}</TableBody></Table></TableContainer> : <Empty title="No dealers assigned" text="Assign a dealer to start the RSA pricing approval flow." />}
+          {assignmentBusy ? <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}><CircularProgress /></Box> : assignmentData?.rows?.length ? <TableContainer sx={{ border: "1px solid #e7ebf1", borderRadius: 2, overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 820, tableLayout: "fixed", "& .MuiTableCell-root": { px: 1.5, py: 1.4, borderColor: "#edf0f4" }, "& .MuiTableHead-root .MuiTableCell-root": { bgcolor: "#f8faff", color: "#68778c", fontSize: 11, fontWeight: 750, letterSpacing: ".035em", textTransform: "uppercase", whiteSpace: "nowrap" } }}>
+              <TableHead><TableRow>
+                <TableCell sx={{ width: 100 }}>Dealer ID</TableCell><TableCell sx={{ width: 190 }}>Dealer / Shop</TableCell><TableCell sx={{ width: 145 }}>Price proposal</TableCell><TableCell sx={{ width: 155 }}>Approval</TableCell><TableCell sx={{ width: 105 }}>Service</TableCell><TableCell sx={{ width: 140 }}>RSA access</TableCell><TableCell align="right" sx={{ width: 64 }}>Actions</TableCell>
+              </TableRow></TableHead>
+              <TableBody>{assignmentData.rows.map(row => <TableRow key={idOf(row)} hover>
+                <TableCell><Typography variant="body2" fontWeight={650} sx={{ overflowWrap: "anywhere" }}>{row.dealer?.dealerCode || row.dealer?.id || "—"}</Typography></TableCell>
+                <TableCell><Typography variant="body2" fontWeight={700} color={NAVY}>{row.dealer?.name || "—"}</Typography><Typography variant="caption" color="text.secondary" noWrap>{row.dealer?.shopName || "—"}</Typography></TableCell>
+                <TableCell><Typography variant="body2" fontWeight={650}>Proposed {money(row.proposedPrice)}</Typography><Typography variant="caption" color="text.secondary">Approved {money(row.approvedPrice)}</Typography></TableCell>
+                <TableCell><Chip size="small" label={readableStatus(row.priceStatus)} color={statusColorFor(row.priceStatus)} sx={{ maxWidth: "100%", "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" } }} /></TableCell>
+                <TableCell><Chip size="small" label={row.dealerActive ? "Active" : "Inactive"} color={row.dealerActive ? "success" : "default"} variant={row.dealerActive ? "filled" : "outlined"} /></TableCell>
+                <TableCell><Stack spacing={0.4}><Typography variant="caption" color={row.dealer?.rsaEnabled ? "success.main" : "text.secondary"}>Access {row.dealer?.rsaEnabled ? "enabled" : "disabled"}</Typography><Typography variant="caption" color={row.dealer?.rsaOnline ? "success.main" : "text.secondary"}>{row.dealer?.rsaOnline ? "Online" : "Offline"}</Typography></Stack></TableCell>
+                <TableCell align="right"><IconButton size="small" aria-label={`Actions for ${row.dealer?.name || "dealer"}`} onClick={event => setAssignmentActionMenu({ anchorEl: event.currentTarget, row })}><MoreVertRoundedIcon /></IconButton></TableCell>
+              </TableRow>)}</TableBody>
+            </Table>
+            <Menu anchorEl={assignmentActionMenu?.anchorEl} open={Boolean(assignmentActionMenu)} onClose={() => setAssignmentActionMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
+              {assignmentActionMenu && <>
+                <MenuItem onClick={() => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); setManageService(null); navigate(`/view-dealer/${row.dealer?.id}`); }}>View dealer</MenuItem>
+                <MenuItem onClick={() => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); setManageService(null); setTab(2); setProposalFilter(row.priceStatus || "all"); }}>View approval</MenuItem>
+                <MenuItem onClick={() => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); openDirectPriceDialog({ dealer: row.dealer, row }); }}>Set price & enable now</MenuItem>
+                {assignmentActionMenu.row.dealerActive ? <MenuItem disabled={!assignmentActionMenu.row.dealerActive} onClick={async () => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); if (window.confirm(`Deactivate ${manageService.name} for this dealer?`)) { const ok = await run(() => setRsaDealerServiceStatus(idOf(row), false), "Dealer service deactivated."); if (ok) loadAssignments(); } }}>Deactivate service</MenuItem> : <MenuItem disabled={assignmentActionMenu.row.priceStatus !== "approved"} onClick={async () => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); if (window.confirm(`Activate ${manageService.name} for ${row.dealer?.name || row.dealer?.dealerCode}?`)) { const ok = await run(() => setRsaDealerServiceStatus(idOf(row), true), "Dealer service activated."); if (ok) loadAssignments(); } }}>Activate service</MenuItem>}
+                <MenuItem sx={{ color: "error.main" }} onClick={async () => { const row = assignmentActionMenu.row; setAssignmentActionMenu(null); if (window.confirm(`Remove ${manageService.name} from ${row.dealer?.name || row.dealer?.dealerCode}? Active requests or reserved offers will block removal.`)) { const ok = await run(() => revokeRsaDealerService(idOf(row)), "Service assignment removed."); if (ok) loadAssignments(); } }}>Remove assignment</MenuItem>
+              </>}
+            </Menu>
+          </TableContainer> : <Empty title="No dealers assigned" text="Assign a dealer to start the RSA pricing approval flow." />}
           {assignmentData?.pages > 1 && <Stack direction="row" justifyContent="flex-end" alignItems="center" gap={1} sx={{ mt: 1.5 }}><Typography variant="body2">Page {assignmentData.page} of {assignmentData.pages}</Typography><Button disabled={assignmentPage <= 1} onClick={() => setAssignmentPage(p => p - 1)}>Previous</Button><Button disabled={assignmentPage >= assignmentData.pages} onClick={() => setAssignmentPage(p => p + 1)}>Next</Button></Stack>}
         </Box>
       </>}
     </Drawer>
-    <Drawer anchor="right" open={pickerOpen} onClose={() => setPickerOpen(false)} PaperProps={{ sx: { ...drawerPaper, width: { xs: "100%", sm: 520 }, maxWidth: "100%" } }}><DrawerHeader title="Assign RSA Service" onClose={() => setPickerOpen(false)} /><Box sx={{ p: 2.5 }}><Alert severity="info" sx={{ mb: 2 }}>Assignment starts pending and inactive. Dealer submits a price; Admin approval, RSA permission and required towing authorization are checked before activation.</Alert><TextField autoFocus fullWidth value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} placeholder="Search Dealer ID, name, shop or phone" helperText="Enter at least 2 characters." />{pickerBusy ? <Box sx={{ p: 4, textAlign: "center" }}><CircularProgress /></Box> : <Stack spacing={1} sx={{ mt: 2 }}>{pickerRows.map(row => <Paper key={row.id} sx={{ ...surface, p: 1.5 }}><Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}><Box><Typography fontWeight={700}>{row.name || row.shopName} · {row.dealerCode || row.id}</Typography><Typography variant="caption" color="text.secondary">{row.shopName || "Shop unavailable"} · {row.verified ? "Verified" : "Unverified"} · RSA {row.rsaEnabled ? "enabled" : "disabled"}</Typography>{!row.rsaEnabled && <Typography variant="caption" display="block" color="warning.main">RSA permission is required before activation.</Typography>}{(manageService?.requiresTowingCapability || manageService?.type === "towing") && !row.towingAuthorized && <Typography variant="caption" display="block" color="warning.main">Towing authorization is required before activation.</Typography>}</Box><Button size="small" disabled={row.alreadyAssigned} onClick={async () => { const ok = await run(() => assignRsaServiceToDealer(idOf(manageService), row.id), "RSA service assigned; dealer pricing is pending."); if (ok) { setPickerOpen(false); loadAssignments(); } }}> {row.alreadyAssigned ? "Assigned" : "Assign"}</Button></Stack></Paper>)}{pickerQuery.length >= 2 && !pickerBusy && !pickerRows.length && <Typography color="text.secondary" sx={{ p: 2 }}>No matching dealers.</Typography>}</Stack>}</Box></Drawer>
+    <Drawer anchor="right" open={pickerOpen} onClose={() => setPickerOpen(false)} PaperProps={{ sx: { ...drawerPaper, width: { xs: "100%", sm: 520 }, maxWidth: "100%" } }}><DrawerHeader title="Assign RSA Service" onClose={() => setPickerOpen(false)} /><Box sx={{ p: 2.5 }}><Alert severity="info" sx={{ mb: 2 }}>Set the service price as Admin to approve and enable it directly. The dealer does not need to submit or accept a price. RSA access and towing eligibility are still checked.</Alert><TextField autoFocus fullWidth value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} placeholder="Search Dealer ID, name, shop or phone" helperText="Enter at least 2 characters." />{pickerBusy ? <Box sx={{ p: 4, textAlign: "center" }}><CircularProgress /></Box> : <Stack spacing={1} sx={{ mt: 2 }}>{pickerRows.map(row => <Paper key={row.id} sx={{ ...surface, p: 1.5 }}><Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}><Box><Typography fontWeight={700}>{row.name || row.shopName} · {row.dealerCode || row.id}</Typography><Typography variant="caption" color="text.secondary">{row.shopName || "Shop unavailable"} · {row.verified ? "Verified" : "Unverified"} · RSA {row.rsaEnabled ? "enabled" : "disabled"}</Typography>{!row.rsaEnabled && <Typography variant="caption" display="block" color="warning.main">RSA permission is required before activation.</Typography>}{(manageService?.requiresTowingCapability || manageService?.type === "towing") && !row.towingAuthorized && <Typography variant="caption" display="block" color="warning.main">Towing authorization is required before activation.</Typography>}</Box><Button size="small" disabled={row.alreadyAssigned || !row.rsaEnabled || !row.adminApproved || !row.active || ((manageService?.requiresTowingCapability || manageService?.type === "towing") && !row.towingAuthorized)} onClick={() => openDirectPriceDialog({ dealer: row })}>{row.alreadyAssigned ? "Assigned" : "Assign & enable"}</Button></Stack></Paper>)}{pickerQuery.length >= 2 && !pickerBusy && !pickerRows.length && <Typography color="text.secondary" sx={{ p: 2 }}>No matching dealers.</Typography>}</Stack>}</Box></Drawer>
 
-    <Drawer anchor="right" open={serviceDrawer} onClose={() => setServiceDrawer(false)} PaperProps={{ sx: drawerPaper }}><DrawerHeader title={editingService ? "Edit RSA service" : "Add RSA service"} onClose={() => setServiceDrawer(false)} /><Box component="form" onSubmit={saveService} sx={drawerBody}><Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>Set up a service customers can request. New services start inactive.</Typography>{serviceError && <Alert severity="error" sx={{ mb: 2 }}>{serviceError}</Alert>}<Stack spacing={2}><TextField label="Service name" required fullWidth value={service.name} onChange={e => setService({ ...service, name: e.target.value })} helperText="Use a short name customers will recognize." /><TextField label="Description" fullWidth multiline minRows={3} value={service.description} onChange={e => setService({ ...service, description: e.target.value })} /><TextField select label="Service type" fullWidth value={service.type} onChange={e => setService({ ...service, type: e.target.value })}>{serviceTypes.map(type => <MenuItem key={type} value={type}>{readable(type)}</MenuItem>)}</TextField><Box><Typography variant="subtitle2" sx={{ mb: 1 }}>Service icon</Typography><Stack direction="row" gap={1} flexWrap="wrap">{["wrench", "bike", "location", "emergency"].map((icon, index) => <Button key={icon} onClick={() => setService({ ...service, icon })} variant={service.icon === icon ? "contained" : "outlined"} startIcon={[<BuildRoundedIcon key="w" />, <TwoWheelerRoundedIcon key="b" />, <LocationOnRoundedIcon key="l" />, <EmergencyRoundedIcon key="e" />][index]} sx={{ textTransform: "none" }}>{["Repair", "Bike", "Location", "Emergency"][index]}</Button>)}</Stack></Box><FormControlLabel control={<Switch checked={!!service.isActive} onChange={e => setService({ ...service, isActive: e.target.checked })} />} label="Service is active" /><Typography variant="caption" color="text.secondary">Keep this off until coverage, dealer access and pricing are ready.</Typography></Stack><DrawerActions onCancel={() => setServiceDrawer(false)} submit={editingService ? "Save changes" : "Create Service"} /></Box></Drawer>
+    <Drawer anchor="right" open={serviceDrawer} onClose={() => setServiceDrawer(false)} PaperProps={{ sx: drawerPaper }}><DrawerHeader title={editingService ? "Edit RSA service" : "Add RSA service"} onClose={() => setServiceDrawer(false)} /><Box component="form" onSubmit={saveService} sx={drawerBody}><Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>Set up a service customers can request. New services start inactive.</Typography>{serviceError && <Alert severity="error" sx={{ mb: 2 }}>{serviceError}</Alert>}<Stack spacing={2}><TextField label="Service name" required fullWidth value={service.name} onChange={e => setService({ ...service, name: e.target.value })} helperText="Use a short name customers will recognize." /><TextField label="Description" fullWidth multiline minRows={3} value={service.description} onChange={e => setService({ ...service, description: e.target.value })} /><TextField select label="Service type" fullWidth value={service.type} onChange={e => selectServiceType(e.target.value)}>{serviceTypes.map(({ type, name }) => <MenuItem key={type} value={type}>{name}</MenuItem>)}</TextField><Box><Typography variant="subtitle2" sx={{ mb: 1 }}>Service icon</Typography><Stack direction="row" gap={1} flexWrap="wrap">{["wrench", "bike", "location", "emergency"].map((icon, index) => <Button key={icon} onClick={() => setService({ ...service, icon })} variant={service.icon === icon ? "contained" : "outlined"} startIcon={[<BuildRoundedIcon key="w" />, <TwoWheelerRoundedIcon key="b" />, <LocationOnRoundedIcon key="l" />, <EmergencyRoundedIcon key="e" />][index]} sx={{ textTransform: "none" }}>{["Repair", "Bike", "Location", "Emergency"][index]}</Button>)}</Stack></Box><FormControlLabel control={<Switch checked={!!service.isActive} onChange={e => setService({ ...service, isActive: e.target.checked })} />} label="Service is active" /><Typography variant="caption" color="text.secondary">Keep this off until coverage, dealer access and pricing are ready.</Typography></Stack><DrawerActions onCancel={() => setServiceDrawer(false)} submit={editingService ? "Save changes" : "Create Service"} /></Box></Drawer>
     <Drawer anchor="right" open={areaDrawer} onClose={() => setAreaDrawer(false)} PaperProps={{ sx: drawerPaper }}><DrawerHeader title={editingArea ? "Edit coverage area" : "Add coverage area"} onClose={() => setAreaDrawer(false)} /><Box component="form" onSubmit={saveArea} sx={drawerBody}><Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>New areas stay inactive until you enable them after review.</Typography><Stack spacing={2}><TextField label="Area name" required value={area.name} onChange={e => setArea({ ...area, name: e.target.value })} /><TextField select label="Coverage boundary" value={area.mode} onChange={e => setArea({ ...area, mode: e.target.value })}><MenuItem value="radius">Radius around a location</MenuItem><MenuItem value="polygon">Advanced GeoJSON polygon</MenuItem></TextField>{area.mode === "radius" ? <><TextField label="Center latitude" type="number" inputProps={{ step: "any", min: -90, max: 90 }} required value={area.latitude} onChange={e => setArea({ ...area, latitude: e.target.value })} /><TextField label="Center longitude" type="number" inputProps={{ step: "any", min: -180, max: 180 }} required value={area.longitude} onChange={e => setArea({ ...area, longitude: e.target.value })} /><TextField label="Service radius (km)" type="number" inputProps={{ step: "any", min: 0.1, max: 100 }} required value={area.radiusKm} onChange={e => setArea({ ...area, radiusKm: e.target.value })} helperText="A circular geographic boundary is created from these coordinates." /></> : <><TextField label="GeoJSON boundary" required multiline minRows={10} value={area.boundary} onChange={e => setArea({ ...area, boundary: e.target.value })} helperText="Use a Polygon or MultiPolygon with longitude, latitude coordinates." /><Button variant="text" onClick={() => { try { setArea({ ...area, boundary: JSON.stringify(JSON.parse(area.boundary), null, 2) }); } catch { setError("Enter valid JSON before formatting."); } }} sx={{ alignSelf: "flex-start", textTransform: "none" }}>Format GeoJSON</Button></>}</Stack><DrawerActions onCancel={() => setAreaDrawer(false)} submit={editingArea ? "Save area" : "Create area"} /></Box></Drawer>
     <Drawer anchor="right" open={dealerDrawer} onClose={() => setDealerDrawer(false)} PaperProps={{ sx: drawerPaper }}><DrawerHeader title="Dealer RSA access" onClose={() => setDealerDrawer(false)} /><Box component="form" onSubmit={saveDealer} sx={drawerBody}><Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>Choose a dealer and set access, capacity and towing capability. Requests still require Admin approval and eligible service pricing.</Typography><Stack spacing={2}><TextField select label="Dealer" required value={dealer.id} onChange={e => { const selected = dealers.find(item => idOf(item) === e.target.value); setDealer({ ...dealer, id: e.target.value, capacity: String(selected?.capacity ?? 0), towing: !!selected?.capabilities?.includes("towing"), enabled: !!selected?.rsaEnabled }); }}>{searchableDealers.map(item => <MenuItem key={idOf(item)} value={idOf(item)}>{displayName(item)}{item.city ? ` · ${item.city}` : ""}{item.phone ? ` · ${item.phone}` : ""}</MenuItem>)}</TextField><TextField label="Request capacity" type="number" inputProps={{ min: 0, max: 100, step: 1 }} required value={dealer.capacity} onChange={e => setDealer({ ...dealer, capacity: e.target.value })} helperText="Maximum active RSA jobs this dealer can handle." /><FormControlLabel control={<Switch checked={dealer.enabled} onChange={e => setDealer({ ...dealer, enabled: e.target.checked })} />} label="RSA program access" /><FormControlLabel control={<Switch checked={dealer.towing} onChange={e => setDealer({ ...dealer, towing: e.target.checked })} />} label="Towing authorized" /></Stack><DrawerActions onCancel={() => setDealerDrawer(false)} submit="Save dealer access" /></Box></Drawer>
     <Drawer anchor="right" open={!!requestDrawer} onClose={() => setRequestDrawer(null)} PaperProps={{ sx: drawerPaper }}><DrawerHeader title="RSA request details" onClose={() => setRequestDrawer(null)} />{requestDrawer && <Box sx={drawerBody}><RequestDetails item={requestDrawer} audit={requestAudit} auditBusy={auditBusy} onAssign={() => assignRequest(requestDrawer)} onAssignTowing={() => assignTowingProvider(requestDrawer)} /></Box>}</Drawer>
+    <Dialog open={!!reviewDialog} onClose={() => setReviewDialog(null)} fullWidth maxWidth="xs" aria-labelledby="rsa-review-title">
+      {reviewDialog && <Box component="form" onSubmit={submitReview}>
+        <DialogTitle id="rsa-review-title" sx={{ color: NAVY, fontWeight: 750 }}>
+          {reviewDialog.action === "approve" ? "Approve proposed price" : reviewDialog.action === "reject" ? "Reject price proposal" : "Suggest a different price"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {displayName(reviewDialog.row.dealerId)} · {reviewDialog.row.serviceId?.name || "RSA service"} · Dealer proposed {money(reviewDialog.row.proposedPrice)}.
+          </Typography>
+          {reviewDialog.action !== "reject" && <TextField autoFocus required fullWidth label={reviewDialog.action === "approve" ? "Approved price (₹)" : "Suggested price (₹)"} type="number" inputProps={{ min: 0, step: "any" }} value={reviewDialog.price} onChange={event => setReviewDialog(current => ({ ...current, price: event.target.value, error: "" }))} sx={{ mb: 2 }} />}
+          {reviewDialog.action !== "approve" && <TextField autoFocus={reviewDialog.action === "reject"} required fullWidth multiline minRows={3} label={reviewDialog.action === "reject" ? "Reason for rejection" : "Note for the dealer"} helperText={reviewDialog.action === "revise" ? "The dealer must accept this suggestion before their price changes." : undefined} value={reviewDialog.reason} onChange={event => setReviewDialog(current => ({ ...current, reason: event.target.value, error: "" }))} />}
+          {reviewDialog.error && <Alert severity="error" sx={{ mt: 2 }}>{reviewDialog.error}</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setReviewDialog(null)} sx={{ textTransform: "none" }}>Cancel</Button>
+          <Button type="submit" variant="contained" color={reviewDialog.action === "reject" ? "error" : "primary"} sx={{ textTransform: "none" }}>
+            {reviewDialog.action === "approve" ? "Approve price" : reviewDialog.action === "reject" ? "Reject proposal" : "Send suggestion"}
+          </Button>
+        </DialogActions>
+      </Box>}
+    </Dialog>
+    <Dialog open={!!directPriceDialog} onClose={() => setDirectPriceDialog(null)} fullWidth maxWidth="xs" aria-labelledby="rsa-direct-price-title">
+      {directPriceDialog && <Box component="form" onSubmit={submitDirectPrice}>
+        <DialogTitle id="rsa-direct-price-title" sx={{ color: NAVY, fontWeight: 750 }}>Assign service directly</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {manageService?.name} · {displayName(directPriceDialog.dealer)}. Enter the customer price; Admin approval enables the service without dealer acceptance.
+          </Typography>
+          <TextField autoFocus required fullWidth label="Approved service price (₹)" type="number" inputProps={{ min: 0, max: 100000, step: "any" }} value={directPriceDialog.price} onChange={event => setDirectPriceDialog(current => ({ ...current, price: event.target.value, error: "" }))} />
+          {directPriceDialog.error && <Alert severity="error" sx={{ mt: 2 }}>{directPriceDialog.error}</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDirectPriceDialog(null)} sx={{ textTransform: "none" }}>Cancel</Button>
+          <Button type="submit" variant="contained" sx={{ textTransform: "none" }}>Approve & enable</Button>
+        </DialogActions>
+      </Box>}
+    </Dialog>
     <Snackbar open={!!notice} autoHideDuration={3500} onClose={() => setNotice("")} message={notice} />
   </Box>;
 }

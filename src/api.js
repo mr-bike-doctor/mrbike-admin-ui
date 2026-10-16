@@ -1576,7 +1576,8 @@ export const reviewRsaProposal = (id, data) => apiRequest("PATCH", `/rsa/admin/p
 const rsaQuery = params => { const query = new URLSearchParams(Object.entries(params || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined)); return query.toString() ? `?${query.toString()}` : ""; };
 export const getRsaServiceDealers = (serviceId, params = {}) => apiRequest("GET", `/rsa/admin/services/${serviceId}/dealers${rsaQuery(params)}`, {}, false);
 export const searchRsaDealerDirectory = params => apiRequest("GET", `/rsa/admin/dealer-directory${rsaQuery(params)}`, {}, false);
-export const assignRsaServiceToDealer = (serviceId, dealerId) => apiRequest("POST", `/rsa/admin/services/${serviceId}/dealers`, { dealerId }, false);
+export const assignRsaServiceToDealer = (serviceId, dealerId, price) => apiRequest("POST", `/rsa/admin/services/${serviceId}/dealers`, { dealerId, ...(price === undefined ? {} : { price }) }, false);
+export const setRsaDealerServicePrice = (id, price) => apiRequest("PATCH", `/rsa/admin/dealer-services/${id}/price`, { price }, false);
 export const setRsaDealerServiceStatus = (id, active) => apiRequest("PATCH", `/rsa/admin/dealer-services/${id}/status`, { active }, false);
 export const revokeRsaDealerService = id => apiRequest("DELETE", `/rsa/admin/dealer-services/${id}`, {}, false);
 export const getRsaRequests = () => apiRequest("GET", "/rsa/admin/requests", {}, false);
